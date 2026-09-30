@@ -171,3 +171,11 @@ def test_list_filter_validation(api: Api, kwargs: dict[str, Any], message: str) 
     with pytest.raises(AuraValidationError, match=message):
         api.client.graph_analytics.list(**kwargs)
     api.assert_no_request()
+
+
+@pytest.mark.parametrize("session_id", [".", ".."])
+@pytest.mark.parametrize("method", ["get", "delete", "wait_until_ready"])
+def test_dot_segment_session_ids_are_rejected(api: Api, method: str, session_id: str) -> None:
+    with pytest.raises(AuraValidationError):
+        getattr(api.client.graph_analytics, method)(session_id)
+    api.assert_no_request()

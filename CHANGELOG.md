@@ -8,6 +8,13 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 
 ## Unreleased
 
+### Fixed
+
+- An ID of exactly `.` or `..` raises `AuraValidationError`. URL parsers resolve these segments,
+  so `cmek.delete("..")` sent `DELETE /v1`, and `graph_analytics.delete("..")` sent
+  `DELETE /v1/graph-analytics`. CMEK key and GDS session IDs were affected; the other IDs are
+  format-checked.
+
 ## v0.1.3 - 2026-09-30
 
 The first release published to PyPI through CI.

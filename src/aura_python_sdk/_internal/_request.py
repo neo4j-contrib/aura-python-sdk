@@ -12,6 +12,7 @@ from urllib.parse import quote, urlencode
 from aura_python_sdk._errors import (
     AuraClientClosedError,
     AuraResponseError,
+    AuraValidationError,
     api_error_from_response,
 )
 from aura_python_sdk._internal._auth import AsyncTokenManager, TokenManager
@@ -20,9 +21,18 @@ from aura_python_sdk._transport import HttpResponse
 
 QueryParams = Mapping[str, str | None]
 
+_DOT_SEGMENTS = frozenset({".", ".."})
+
 
 def build_path(*segments: str) -> str:
-    """Join path segments, percent-encoding each so an ID can never alter the path."""
+    """Join path segments, percent-encoding each so an ID can never alter the path.
+
+    Encoding covers ``/``, ``?`` and ``#``, but not the dot segments ``.`` and ``..``, which URL
+    parsers resolve (``customer-managed-keys/..`` would become ``/v1``), so those are rejected.
+    """
+    for segment in segments:
+        if segment in _DOT_SEGMENTS:
+            raise AuraValidationError(f"{segment!r} is not a valid ID")
     return "/".join(quote(segment, safe="") for segment in segments)
 
 

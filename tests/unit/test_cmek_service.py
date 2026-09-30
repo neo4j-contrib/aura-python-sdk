@@ -134,3 +134,12 @@ def test_key_id_is_path_encoded(api: Api) -> None:
     api.reply(200, {"data": FULL_KEY})
     api.client.cmek.get("a/b")
     assert api.request.url == f"{BASE}/customer-managed-keys/a%2Fb"
+
+
+@pytest.mark.parametrize("key_id", [".", ".."])
+@pytest.mark.parametrize("method", ["get", "delete"])
+def test_dot_segment_key_ids_are_rejected(api: Api, method: str, key_id: str) -> None:
+    # cmek.delete("..") used to send DELETE /v1.
+    with pytest.raises(AuraValidationError):
+        getattr(api.client.cmek, method)(key_id)
+    api.assert_no_request()

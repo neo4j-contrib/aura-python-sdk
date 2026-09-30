@@ -3,7 +3,13 @@ import logging
 
 import pytest
 
-from aura_python_sdk import AuraResponseError, AuthenticationError, HttpResponse, NotFoundError
+from aura_python_sdk import (
+    AuraResponseError,
+    AuraValidationError,
+    AuthenticationError,
+    HttpResponse,
+    NotFoundError,
+)
 from aura_python_sdk._internal._auth import TokenManager
 from aura_python_sdk._internal._request import RequestService, build_path
 from aura_python_sdk._internal.http._service import HttpService
@@ -195,3 +201,15 @@ def test_response_json_invalid() -> None:
 def test_build_path_encodes_segments() -> None:
     assert build_path("instances", "abcd1234", "snapshots") == "instances/abcd1234/snapshots"
     assert build_path("sessions", "../x?y") == "sessions/..%2Fx%3Fy"
+
+
+@pytest.mark.parametrize("segment", [".", ".."])
+def test_build_path_rejects_dot_segments(segment: str) -> None:
+    # Percent-encoding leaves these alone, and URL parsers resolve them: "keys/.." is "/v1".
+    with pytest.raises(AuraValidationError, match="not a valid ID"):
+        build_path("customer-managed-keys", segment)
+
+
+def test_build_path_allows_dots_inside_a_segment() -> None:
+    assert build_path("sessions", "a..b") == "sessions/a..b"
+    assert build_path("sessions", "...") == "sessions/..."
