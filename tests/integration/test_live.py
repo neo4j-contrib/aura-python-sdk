@@ -11,7 +11,6 @@ test_create_pause_resume_delete creates a free instance, pauses and resumes it, 
 from __future__ import annotations
 
 import os
-import time
 from collections.abc import Callable, Iterator
 
 import pytest
@@ -93,26 +92,14 @@ def test_bad_credentials_are_rejected() -> None:
         bad.tenants.list()
 
 
-def _wait_for(
-    client: aura.AuraClient, instance_id: str, status: aura.InstanceStatus, timeout: float = 900
-) -> aura.Instance:
-    deadline = time.monotonic() + timeout
-    while True:
-        try:
-            instance = client.instances.get(instance_id)
-            if instance.status == status:
-                return instance
-        except aura.NotFoundError:
-            pass  # a new instance can take a moment to appear
-        if time.monotonic() > deadline:
-            pytest.fail(f"instance {instance_id} did not reach {status} within {timeout:.0f}s")
-        time.sleep(10)
-
-
 @pytest.mark.skipif(
     not (WRITES_ENABLED and TENANT_ID), reason="needs AURA_INTEGRATION_WRITE=1 and AURA_TENANT_ID"
 )
 def test_create_pause_resume_delete(client: aura.AuraClient) -> None:
+    # A tenant can have only one free instance; creating a second fails with 402.
+    for summary in client.instances.list(tenant_id=TENANT_ID):
+        if client.instances.get(summary.id).type == aura.InstanceType.FREE_DB:
+            pytest.skip(f"tenant already has a free instance ({summary.id}); delete it to run this")
     created = client.instances.create(
         aura.InstanceConfig(
             name="aura-python-sdk-it",
@@ -125,11 +112,14 @@ def test_create_pause_resume_delete(client: aura.AuraClient) -> None:
         )
     )
     try:
-        _wait_for(client, created.id, aura.InstanceStatus.RUNNING)
+        # Exercises the wait helper, including its tolerance of a new instance's early 404s.
+        running = client.instances.wait_for_status(created.id)
+        assert running.status == aura.InstanceStatus.RUNNING
         client.instances.pause(created.id)
-        _wait_for(client, created.id, aura.InstanceStatus.PAUSED)
+        paused = client.instances.wait_for_status(created.id, status=aura.InstanceStatus.PAUSED)
+        assert paused.status == aura.InstanceStatus.PAUSED
         client.instances.resume(created.id)
-        _wait_for(client, created.id, aura.InstanceStatus.RUNNING)
+        client.instances.wait_for_status(created.id)
     finally:
         client.instances.delete(created.id)
 

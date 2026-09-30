@@ -15,11 +15,7 @@ def main() -> int:
             for summary in client.tenants.list():
                 tenant = client.tenants.get(summary.id)
                 print(f"{tenant.name} ({tenant.id})")
-                for config in tenant.instance_configurations:
-                    print(
-                        f"  - {config.type} {config.cloud_provider} {config.region} "
-                        f"memory={config.memory} storage={config.storage} version={config.version}"
-                    )
+
     except aura.AuraError as err:
         print(f"error: {err}", file=sys.stderr)
         return 1
