@@ -136,6 +136,8 @@ class AuraAPIError(AuraError):
                 text += f" (and {len(self.details) - 1} more error(s))"
         return text
 
+    # Go SDK equivalents. In Python, prefer catching the subclass (``except NotFoundError``).
+
     def all_errors(self) -> list[str]:
         """The top-level message followed by every detail message."""
         return [self.message, *(detail.message for detail in self.details)]

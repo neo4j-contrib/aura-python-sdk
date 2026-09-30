@@ -407,7 +407,8 @@ send.
 | `defer client.Close()` | `with aura.AuraClient(...) as client:` |
 | goroutines with a shared client | `AsyncAuraClient` with `asyncio.gather` |
 | `client.Instances.List(ctx)` returning `resp.Data` | `client.instances.list()` returns the list |
-| `aura.IsNotFound(err)` | `except aura.NotFoundError:` |
+| `aura.IsNotFound(err)`, `IsUnauthorized`, `IsBadRequest` | `except aura.NotFoundError:` (or `err.is_not_found`, `err.is_unauthorized`, `err.is_bad_request` on any `AuraAPIError`) |
+| `apiErr.HasMultipleErrors()` / `AllErrors()` | `err.has_multiple_errors` / `err.all_errors()` |
 | `aura.WithHTTPClient(c)` | `transport=` |
 | `aura.WithInsecureBaseURL(u)` | `base_url=u, allow_insecure_base_url=True` |
 | `client.Tenants.GetMetrics` | `client.tenants.get_metrics_integration` |
