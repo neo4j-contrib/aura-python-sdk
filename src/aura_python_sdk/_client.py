@@ -154,6 +154,7 @@ class AuraClient:
             default_headers=self._config.default_headers,
             timeout=self._config.timeout,
             logger=self._logger.getChild("api"),
+            is_closed=lambda: self._closed,
         )
 
         self.tenants = TenantService(self._api, self._logger.getChild("tenants"))
@@ -285,6 +286,7 @@ class AsyncAuraClient:
             default_headers=self._config.default_headers,
             timeout=self._config.timeout,
             logger=self._logger.getChild("api"),
+            is_closed=lambda: self._closed,
         )
 
         self.tenants = AsyncTenantService(self._api, self._logger.getChild("tenants"))

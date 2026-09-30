@@ -159,6 +159,15 @@ async def test_does_not_close_caller_transport() -> None:
     assert transport.closed is False
 
 
+async def test_call_after_aclose_raises_client_closed() -> None:
+    transport = FakeAsyncTransport()
+    client = aura.AsyncAuraClient(client_id="id", client_secret="secret", transport=transport)
+    await client.aclose()
+    with pytest.raises(aura.AuraClientClosedError, match="client is closed"):
+        await client.instances.list()
+    assert transport.requests == []
+
+
 def test_transport_kinds_are_not_interchangeable() -> None:
     with pytest.raises(aura.AuraConfigurationError, match="use AuraClient"):
         aura.AsyncAuraClient(client_id="id", client_secret="s", transport=FakeTransport())  # type: ignore[arg-type]

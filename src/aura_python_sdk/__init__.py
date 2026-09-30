@@ -16,6 +16,7 @@ import logging
 from aura_python_sdk._client import AsyncAuraClient, AuraClient
 from aura_python_sdk._errors import (
     AuraAPIError,
+    AuraClientClosedError,
     AuraConfigurationError,
     AuraConnectionError,
     AuraError,
@@ -77,6 +78,7 @@ __all__ = [
     "AsyncHttpTransport",
     "AuraAPIError",
     "AuraClient",
+    "AuraClientClosedError",
     "AuraConfigurationError",
     "AuraConnectionError",
     "AuraError",

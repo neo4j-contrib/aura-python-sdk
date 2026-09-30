@@ -50,6 +50,10 @@ class AuraTimeoutError(AuraConnectionError, TimeoutError):
     """The request did not complete within the configured timeout. Also a :class:`TimeoutError`."""
 
 
+class AuraClientClosedError(AuraError, RuntimeError):
+    """The client was used after ``close()`` or ``aclose()``. Create a new client instead."""
+
+
 class AuraResponseError(AuraError):
     """The API response could not be used: too large, not valid JSON, or an unexpected shape."""
 
@@ -278,6 +282,7 @@ for _public in (
     AuraValidationError,
     AuraConnectionError,
     AuraTimeoutError,
+    AuraClientClosedError,
     AuraResponseError,
     MetricNotFoundError,
     ErrorDetail,

@@ -84,6 +84,20 @@ def test_does_not_close_caller_transport() -> None:
     assert transport.closed is False
 
 
+@pytest.mark.parametrize("owned", [True, False])
+def test_call_after_close_raises_client_closed(owned: bool) -> None:
+    transport = None if owned else FakeTransport()
+    client = AuraClient(client_id="id", client_secret="secret", transport=transport)
+    client.close()
+    with pytest.raises(aura.AuraClientClosedError, match="client is closed") as info:
+        client.instances.list()
+    # Catchable as an SDK error, and as the RuntimeError httpx used to raise.
+    assert isinstance(info.value, aura.AuraError)
+    assert isinstance(info.value, RuntimeError)
+    if transport is not None:
+        assert transport.requests == []
+
+
 def test_repr_hides_credentials() -> None:
     client = AuraClient(client_id="id-123", client_secret="s3cr3t", transport=FakeTransport())
     assert "s3cr3t" not in repr(client)

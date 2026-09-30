@@ -163,6 +163,7 @@ def _examples() -> list[BaseException]:
         aura.AuraConfigurationError("bad option"),
         aura.AuraValidationError("bad argument"),
         aura.AuraResponseError("bad body"),
+        aura.AuraClientClosedError("closed"),
         aura.MetricNotFoundError("no metric"),
     ]
 

@@ -65,7 +65,7 @@ client = aura.AuraClient.from_env()
 ```
 
 Using the client as a context manager (or calling `client.close()`) releases its pooled
-connections.
+connections. A closed client raises `AuraClientClosedError` if you use it again.
 
 ## Configuration
 
@@ -276,6 +276,7 @@ AuraError
 ├── AuraValidationError      (ValueError)  bad arguments; nothing was sent
 ├── AuraConnectionError   (ConnectionError) network failure after retries
 │   └── AuraTimeoutError  (TimeoutError)
+├── AuraClientClosedError (RuntimeError)   the client was used after close()
 ├── AuraResponseError                      oversized or malformed response
 ├── MetricNotFoundError      (LookupError)
 └── AuraAPIError                           non-2xx response

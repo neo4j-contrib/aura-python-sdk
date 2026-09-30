@@ -36,6 +36,8 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
   value and only the body's length.
 - SDK exceptions can be pickled. `AuraAPIError`, `RateLimitError` and `AuraConnectionError`
   failed to unpickle, which broke `multiprocessing`, `ProcessPoolExecutor` and Celery.
+- Using a client after `close()` or `aclose()` raises `AuraClientClosedError` (an `AuraError` and
+  a `RuntimeError`). It used to raise httpx's own `RuntimeError`, which `except AuraError` missed.
 
 ### Changed
 
