@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.25"]
+requires = ["hatchling>=1.25", "hatch-vcs>=0.4"]
 build-backend = "hatchling.build"
 
 [project]
@@ -39,9 +39,18 @@ dev = [
     "types-pyyaml>=6.0.12.20260906",
 ]
 
+# The version comes from the latest git tag (vX.Y.Z); there is no version to edit by hand.
 [tool.hatch.version]
-path = "src/aura_python_sdk/_version.py"
-pattern = "__version__ = \"(?P<version>[^\"]+)\""
+source = "vcs"
+# Used when building without git history, e.g. from a source zip.
+fallback-version = "0.0.0"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/aura_python_sdk/_version.py"
+
+[tool.uv]
+# Rebuild the local install when the commit or tags change, so __version__ stays current.
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true } }]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/aura_python_sdk"]

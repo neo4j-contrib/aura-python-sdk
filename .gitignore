@@ -11,3 +11,6 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 .env
+
+# Generated from the git tag by hatch-vcs at build/install time.
+src/aura_python_sdk/_version.py

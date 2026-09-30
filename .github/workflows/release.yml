@@ -14,18 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # hatch-vcs reads the version from the tag, so it needs the history
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.11"
-
-      # The tag must match __version__, so the published version is the one in the source.
-      - name: Check tag matches package version
-        run: |
-          VERSION=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' src/aura_python_sdk/_version.py)
-          if [ "v${VERSION}" != "${GITHUB_REF_NAME}" ]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match __version__ ${VERSION}" >&2
-            exit 1
-          fi
 
       # Gate: the release is only built if lint, types and tests pass.
       - run: uv sync --all-extras
@@ -35,18 +28,23 @@ jobs:
       - run: uv run pytest -m "not integration"
 
       - run: uv build
+      # The version comes from the tag, so check the wheel really carries it.
       - name: Smoke-test the wheel in a clean environment
         run: |
           uv venv /tmp/smoke
           uv pip install --python /tmp/smoke/bin/python dist/*.whl
-          /tmp/smoke/bin/python -c "import aura_python_sdk as aura; print(aura.__version__)"
+          VERSION=$(/tmp/smoke/bin/python -c "import aura_python_sdk as aura; print(aura.__version__)")
+          if [ "v${VERSION}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Built version ${VERSION} does not match tag ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
 
-  # Rehearsal upload: a broken package fails here before it reaches the real index.
+  # PyPI publishing is off for now; releases go to TestPyPI only.
   publish-testpypi:
     name: Publish to TestPyPI
     needs: build
@@ -67,25 +65,9 @@ jobs:
           # Versions can't be re-uploaded, so a re-run after a partial release must not fail here.
           skip-existing: true
 
-  publish:
-    name: Publish to PyPI
-    needs: publish-testpypi
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/project/aura-python-sdk/
-    permissions:
-      id-token: write # PyPI trusted publishing; no API token is stored in the repo
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-      - uses: pypa/gh-action-pypi-publish@release/v1
-
   github-release:
     name: Create GitHub release
-    needs: publish
+    needs: publish-testpypi
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -114,4 +96,4 @@ jobs:
           name: ${{ github.ref_name }}
           body_path: release_notes.md
           files: dist/*
-          prerelease: ${{ contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}
+          prerelease: ${{ contains(github.ref_name, 'dev') || contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}

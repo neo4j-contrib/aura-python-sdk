@@ -4,7 +4,10 @@ import aura_python_sdk
 
 
 def test_version_is_exported() -> None:
-    assert re.fullmatch(r"\d+\.\d+\.\d+(\.dev\d+|a\d+|b\d+|rc\d+)?", aura_python_sdk.__version__)
+    # Builds between tags carry a local suffix, e.g. 0.1.1.dev3+g8d7381f.
+    assert re.fullmatch(
+        r"\d+\.\d+\.\d+(\.dev\d+|a\d+|b\d+|rc\d+)?(\+[\w.]+)?", aura_python_sdk.__version__
+    )
 
 
 def test_package_is_typed() -> None:
