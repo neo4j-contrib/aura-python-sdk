@@ -200,7 +200,7 @@ def test_connection_refused(fake_aura: FakeAura) -> None:
 def test_prometheus_over_http(fake_aura: FakeAura) -> None:
     text = b"# TYPE neo4j_aura_cpu_usage gauge\nneo4j_aura_cpu_usage 0.5\n"
     fake_aura.route("GET", "/metrics", Reply(200, text, {"Content-Type": "text/plain"}))
-    with fake_aura.client() as client:
+    with fake_aura.client(allow_untrusted_metrics_urls=True) as client:
         metrics = client.prometheus.fetch_raw_metrics(f"{fake_aura.url}/metrics")
         assert client.prometheus.get_metric_value(metrics, "neo4j_aura_cpu_usage") == 0.5
     assert fake_aura.api_requests()[0].headers["authorization"] == "Bearer local-token"

@@ -4,6 +4,7 @@ import pytest
 
 from aura_python_sdk import (
     AuraClient,
+    AuraConfigurationError,
     AuraResponseError,
     AuraValidationError,
     ConnectionMetrics,
@@ -88,13 +89,12 @@ def test_apex_domain_is_trusted(api: Api) -> None:
     api.client.prometheus.fetch_raw_metrics("https://neo4j.io/metrics")
 
 
-def test_insecure_client_allows_local_metrics_urls() -> None:
+def test_untrusted_metrics_option_allows_local_metrics_urls() -> None:
     transport = FakeTransport([token_response(), HttpResponse(200, body=b"up 1")])
     client = AuraClient(
         client_id="id",
         client_secret="secret",
-        base_url="http://localhost:9000",
-        allow_insecure_base_url=True,
+        allow_untrusted_metrics_urls=True,
         transport=transport,
     )
     metrics = client.prometheus.fetch_raw_metrics("http://localhost:9100/metrics")
@@ -260,3 +260,27 @@ def test_critical_health_end_to_end(api: Api) -> None:
     assert health.overall_status is HealthStatus.CRITICAL
     assert health.issues == ("Critical memory usage: 97.0%",)
     assert health.recommendations == ("Scale to a larger memory instance immediately",)
+
+
+def test_insecure_base_url_does_not_lift_the_metrics_allowlist() -> None:
+    # Each flag does one job: an http:// base URL for a test server doesn't let the token go
+    # to arbitrary metrics hosts.
+    client = AuraClient(
+        client_id="id",
+        client_secret="secret",
+        base_url="http://localhost:9000",
+        allow_insecure_base_url=True,
+        transport=FakeTransport(),
+    )
+    with pytest.raises(AuraValidationError, match=r"https://\*\.neo4j\.io"):
+        client.prometheus.fetch_raw_metrics("http://localhost:9100/metrics")
+
+
+def test_untrusted_metrics_option_does_not_allow_an_http_base_url() -> None:
+    with pytest.raises(AuraConfigurationError, match="HTTPS"):
+        AuraClient(
+            client_id="id",
+            client_secret="secret",
+            base_url="http://localhost:9000",
+            allow_untrusted_metrics_urls=True,
+        )

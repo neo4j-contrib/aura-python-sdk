@@ -8,6 +8,13 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 
 ## Unreleased
 
+### Changed
+
+- **Breaking:** `allow_insecure_base_url` no longer lifts the Prometheus URL allowlist. Use the
+  new `allow_untrusted_metrics_urls=True` to fetch metrics from a host other than
+  `https://*.neo4j.io`. A flag meant for an `http://` test API server also let the Aura token go
+  to any metrics URL.
+
 ### Fixed
 
 - An ID of exactly `.` or `..` raises `AuraValidationError`. URL parsers resolve these segments,

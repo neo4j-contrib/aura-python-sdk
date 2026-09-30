@@ -87,7 +87,8 @@ client = aura.AuraClient(
 | --- | --- | --- |
 | `client_id`, `client_secret` | required | Must not be empty. |
 | `base_url` | `https://api.neo4j.io` | Must be HTTPS. |
-| `allow_insecure_base_url` | `False` | Allows an `http://` base URL, and metrics URLs outside `*.neo4j.io`. For local test servers only. |
+| `allow_insecure_base_url` | `False` | Allows an `http://` base URL. For local test servers only. |
+| `allow_untrusted_metrics_urls` | `False` | Allows Prometheus URLs other than `https://*.neo4j.io`. The Aura token is sent to them, so for local test servers only. |
 | `timeout` | `120` | Seconds allowed for each call (see below). |
 | `max_retries` | `3` | `0` disables retries. |
 | `max_response_size` | 10 MB | Larger responses raise `AuraResponseError`. |
@@ -288,7 +289,8 @@ client.graph_analytics.delete(session.id)
 
 Get a metrics endpoint from `tenants.get_metrics_integration()` or from an instance's
 `metrics_integration_url`. The client sends its Aura token to that endpoint, so only
-`https://*.neo4j.io` URLs are accepted.
+`https://*.neo4j.io` URLs are accepted, unless you pass `allow_untrusted_metrics_urls=True` for
+a local test server.
 
 ```python
 instance = client.instances.get("a1b2c3d4")
