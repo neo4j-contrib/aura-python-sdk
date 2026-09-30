@@ -139,10 +139,12 @@ CASES: list[tuple[str, str, tuple[Any, ...], dict[str, Any], list[HttpResponse]]
         {"source_snapshot_id": SNAPSHOT_ID},
         [data(INSTANCE, 202)],
     ),
+    ("instances", "wait_for_status", (INSTANCE_ID,), {"status": "running"}, [data(INSTANCE)]),
     ("snapshots", "list", (INSTANCE_ID,), {"date": dt.date(2026, 1, 2)}, [data([SNAPSHOT])]),
     ("snapshots", "get", (INSTANCE_ID, SNAPSHOT_ID), {}, [data(SNAPSHOT)]),
     ("snapshots", "create", (INSTANCE_ID,), {}, [data({"snapshot_id": SNAPSHOT_ID}, 202)]),
     ("snapshots", "restore", (INSTANCE_ID, SNAPSHOT_ID), {}, [data(INSTANCE, 202)]),
+    ("snapshots", "wait_for_completion", (INSTANCE_ID, SNAPSHOT_ID), {}, [data(SNAPSHOT)]),
     ("cmek", "list", (), {"tenant_id": TENANT_ID}, [data([])]),
     ("cmek", "get", (KEY["id"],), {}, [data(KEY)]),
     (
@@ -183,6 +185,7 @@ CASES: list[tuple[str, str, tuple[Any, ...], dict[str, Any], list[HttpResponse]]
     ),
     ("graph_analytics", "get", (SESSION["id"],), {}, [data(SESSION)]),
     ("graph_analytics", "delete", (SESSION["id"],), {}, [data({"id": SESSION["id"]}, 202)]),
+    ("graph_analytics", "wait_until_ready", (SESSION["id"],), {}, [data(SESSION)]),
     ("prometheus", "fetch_raw_metrics", (METRICS_URL,), {}, [METRICS]),
     ("prometheus", "get_instance_health", (INSTANCE_ID, METRICS_URL), {}, [METRICS]),
 ]

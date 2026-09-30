@@ -10,11 +10,13 @@ from aura_python_sdk._errors import AuraValidationError
 from aura_python_sdk._internal._call import Call, many, one
 from aura_python_sdk._internal._request import build_path
 from aura_python_sdk._internal._serde import to_json
+from aura_python_sdk._internal._wait import DEFAULT_WAIT_INTERVAL, DEFAULT_WAIT_TIMEOUT, Target
 from aura_python_sdk.models.graph_analytics import (
     DeletedGDSSession,
     GDSSession,
     GDSSessionConfig,
     GDSSessionSizeEstimate,
+    GDSSessionStatus,
 )
 from aura_python_sdk.services._base import (
     INSTANCE_ID_PARAM,
@@ -124,6 +126,16 @@ def _delete(session_id: str) -> Call[DeletedGDSSession]:
     )
 
 
+def _ready_target(session_id: str) -> Target[GDSSession]:
+    session_id = validate.session_id(session_id)
+    return Target(
+        describe=f"GDS session {session_id} to be ready",
+        status=lambda session: session.status,
+        done=GDSSessionStatus.READY,
+        failed={GDSSessionStatus.FAILED, GDSSessionStatus.EXPIRED},
+    )
+
+
 # --- Services ---
 
 
@@ -178,6 +190,25 @@ class GDSSessionService(Service):
         """Delete a session."""
         return self._run(_delete(session_id))
 
+    def wait_until_ready(
+        self,
+        session_id: str,
+        *,
+        timeout: float = DEFAULT_WAIT_TIMEOUT,
+        interval: float = DEFAULT_WAIT_INTERVAL,
+    ) -> GDSSession:
+        """Poll :meth:`get` until the session is ``Ready``, and return it.
+
+        ``timeout`` and ``interval`` are in seconds (15 minutes and 10 seconds by default).
+
+        Raises:
+            OperationFailedError: The session ``Failed`` or ``Expired``.
+            WaitTimeoutError: ``timeout`` passed first. The session may still become ready.
+            NotFoundError: It still wasn't found after a minute.
+        """
+        target = _ready_target(session_id)
+        return self._wait(lambda: self.get(session_id), target, timeout, interval)
+
 
 class AsyncGDSSessionService(AsyncService):
     """Async version of :class:`GDSSessionService`, with the same arguments and behaviour."""
@@ -225,3 +256,14 @@ class AsyncGDSSessionService(AsyncService):
     async def delete(self, session_id: str) -> DeletedGDSSession:
         """See :meth:`GDSSessionService.delete`."""
         return await self._run(_delete(session_id))
+
+    async def wait_until_ready(
+        self,
+        session_id: str,
+        *,
+        timeout: float = DEFAULT_WAIT_TIMEOUT,
+        interval: float = DEFAULT_WAIT_INTERVAL,
+    ) -> GDSSession:
+        """See :meth:`GDSSessionService.wait_until_ready`."""
+        target = _ready_target(session_id)
+        return await self._wait(lambda: self.get(session_id), target, timeout, interval)

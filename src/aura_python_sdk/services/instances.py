@@ -10,6 +10,7 @@ from aura_python_sdk._errors import AuraValidationError
 from aura_python_sdk._internal._call import Call, many, one
 from aura_python_sdk._internal._request import build_path
 from aura_python_sdk._internal._serde import to_json
+from aura_python_sdk._internal._wait import DEFAULT_WAIT_INTERVAL, DEFAULT_WAIT_TIMEOUT, Target
 from aura_python_sdk.models._common import InstanceType
 from aura_python_sdk.models.instances import (
     CDCEnrichmentMode,
@@ -17,6 +18,7 @@ from aura_python_sdk.models.instances import (
     Instance,
     InstanceConfig,
     InstanceSizeEstimate,
+    InstanceStatus,
     InstanceSummary,
 )
 from aura_python_sdk.services._base import TENANT_ID_PARAM, AsyncService, Service
@@ -213,6 +215,18 @@ def _overwrite(
     )
 
 
+def _status_target(instance_id: str, status: InstanceStatus | str) -> Target[Instance]:
+    instance_id = validate.instance_id(instance_id)
+    status = validate.require_non_empty("status", status)
+    return Target(
+        describe=f"instance {instance_id} to be {status}",
+        status=lambda instance: instance.status,
+        done=status,
+        # Waiting for the failed state itself is allowed.
+        failed={InstanceStatus.LOADING_FAILED} - {status},
+    )
+
+
 def _create_body(config: InstanceConfig) -> dict[str, object]:
     """Validate a create request as the Go SDK's validateCreateInstanceConfig does."""
     if not isinstance(config, InstanceConfig):
@@ -347,6 +361,36 @@ class InstanceService(Service):
         """Replace an instance's data with a snapshot."""
         return self._run(_overwrite(instance_id, source_snapshot_id=source_snapshot_id))
 
+    def wait_for_status(
+        self,
+        instance_id: str,
+        *,
+        status: InstanceStatus | str = InstanceStatus.RUNNING,
+        timeout: float = DEFAULT_WAIT_TIMEOUT,
+        interval: float = DEFAULT_WAIT_INTERVAL,
+    ) -> Instance:
+        """Poll :meth:`get` until the instance has ``status``, and return it.
+
+        Use it after ``create``, ``pause`` or ``resume``::
+
+            created = client.instances.create(config)
+            instance = client.instances.wait_for_status(created.id)
+
+        ``update``, ``upgrade``, overwrites and restores start and end in ``running``, so the
+        first poll may still see the old status and return at once. This method can't tell
+        when those have finished.
+
+        ``timeout`` and ``interval`` are in seconds (15 minutes and 10 seconds by default). A new
+        instance can take a moment to appear, so a 404 in the first minute is retried.
+
+        Raises:
+            OperationFailedError: The instance reached ``loading failed``.
+            WaitTimeoutError: ``timeout`` passed first. The operation may still be running.
+            NotFoundError: The instance still wasn't found after a minute.
+        """
+        target = _status_target(instance_id, status)
+        return self._wait(lambda: self.get(instance_id), target, timeout, interval)
+
 
 class AsyncInstanceService(AsyncService):
     """Async version of :class:`InstanceService`, with the same arguments and behaviour."""
@@ -443,3 +487,15 @@ class AsyncInstanceService(AsyncService):
     ) -> Instance:
         """See :meth:`InstanceService.overwrite_from_snapshot`."""
         return await self._run(_overwrite(instance_id, source_snapshot_id=source_snapshot_id))
+
+    async def wait_for_status(
+        self,
+        instance_id: str,
+        *,
+        status: InstanceStatus | str = InstanceStatus.RUNNING,
+        timeout: float = DEFAULT_WAIT_TIMEOUT,
+        interval: float = DEFAULT_WAIT_INTERVAL,
+    ) -> Instance:
+        """See :meth:`InstanceService.wait_for_status`."""
+        target = _status_target(instance_id, status)
+        return await self._wait(lambda: self.get(instance_id), target, timeout, interval)

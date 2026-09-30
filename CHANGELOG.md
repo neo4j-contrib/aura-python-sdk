@@ -19,6 +19,9 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 - Full v1 spec coverage beyond the Go SDK: `instances.estimate_size`, `instances.upgrade`,
   `cmek.get` / `create` / `delete`, list filters, and the `storage`, `vector_optimized` and
   `graph_analytics_plugin` update fields.
+- Wait helpers for asynchronous operations: `instances.wait_for_status()`,
+  `snapshots.wait_for_completion()` and `graph_analytics.wait_until_ready()`, on both clients.
+  They raise `OperationFailedError` on a failed state and `WaitTimeoutError` at the timeout.
 - `with_options(timeout=..., max_retries=...)` on both clients, for a copy with different
   settings that shares the connections and OAuth token.
 - Frozen dataclass models and `StrEnum`s that tolerate values the SDK doesn't know yet.

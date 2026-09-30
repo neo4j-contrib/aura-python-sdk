@@ -201,8 +201,22 @@ created = client.instances.create(
 print(created.id, created.username, created.password)  # the password is shown only once
 ```
 
-Creation is asynchronous: poll `get()` until the status is `running`. See
+Creation is asynchronous. `wait_for_status()` polls `get()` until the instance reaches a status
+(`running` by default), and raises `OperationFailedError` if loading fails or `WaitTimeoutError`
+after `timeout` (15 minutes by default). See
 [examples/create_delete_instance.py](examples/create_delete_instance.py).
+
+```python
+created = client.instances.create(config)
+instance = client.instances.wait_for_status(created.id)
+client.instances.pause(instance.id)
+client.instances.wait_for_status(instance.id, status=aura.InstanceStatus.PAUSED)
+```
+
+Use it after `create`, `pause` and `resume`, which each end in a status the instance wasn't
+already in. `update`, `upgrade`, overwrites and restores start and end in `running`, so the first
+poll may still see the old status and return at once; `wait_for_status()` can't tell you when
+those have finished.
 
 | Method | What it does |
 | --- | --- |
@@ -218,6 +232,7 @@ Creation is asynchronous: poll `get()` until the status is `running`. See
 | `overwrite_from_snapshot(instance_id, *, source_snapshot_id)` | Replaces the data with a snapshot. |
 | `estimate_size(*, node_count, relationship_count, instance_type, algorithm_categories)` | Sizing for AuraDS instances. |
 | `upgrade(instance_id, *, memory, storage)` | Professional to Business Critical. Pass both sizes, or neither. |
+| `wait_for_status(instance_id, *, status=RUNNING, timeout=900, interval=10)` | Polls until the instance has `status`. |
 
 `CreatedInstance.password` is left out of `repr()`, so logging the object doesn't expose it.
 
@@ -230,9 +245,12 @@ snapshots = client.snapshots.list("2f49c2b3")  # today
 snapshots = client.snapshots.list("2f49c2b3", date=datetime.date(2026, 9, 1))
 
 started = client.snapshots.create("2f49c2b3")
-snapshot = client.snapshots.get("2f49c2b3", started.snapshot_id)
+snapshot = client.snapshots.wait_for_completion("2f49c2b3", started.snapshot_id)
 client.snapshots.restore("2f49c2b3", snapshot.snapshot_id)
 ```
+
+`wait_for_completion()` polls until the snapshot is `Completed`, and raises
+`OperationFailedError` if it fails or is cancelled.
 
 ## Customer-managed keys
 
@@ -267,6 +285,7 @@ session = client.graph_analytics.create(
         region="europe-west1",
     )
 )
+session = client.graph_analytics.wait_until_ready(session.id)
 sessions = client.graph_analytics.list(tenant_id=session.tenant_id)
 client.graph_analytics.delete(session.id)
 ```
@@ -306,6 +325,8 @@ AuraError
 │   └── AuraTimeoutError  (TimeoutError)
 ├── AuraClientClosedError (RuntimeError)   the client was used after close()
 ├── AuraResponseError                      oversized or malformed response
+├── OperationFailedError                   a wait_* helper saw the operation fail
+├── WaitTimeoutError     (TimeoutError)    a wait_* helper gave up; .resource is the last state
 ├── MetricNotFoundError      (LookupError)
 └── AuraAPIError                           non-2xx response
     ├── BadRequestError         400

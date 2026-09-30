@@ -164,6 +164,8 @@ def _examples() -> list[BaseException]:
         aura.AuraValidationError("bad argument"),
         aura.AuraResponseError("bad body"),
         aura.AuraClientClosedError("closed"),
+        aura.OperationFailedError("failed", resource=detail),
+        aura.WaitTimeoutError("too slow", resource=detail),
         aura.MetricNotFoundError("no metric"),
     ]
 

@@ -58,6 +58,34 @@ class AuraResponseError(AuraError):
     """The API response could not be used: too large, not valid JSON, or an unexpected shape."""
 
 
+class OperationFailedError(AuraError):
+    """A ``wait_*`` helper saw the operation fail, for example status ``loading failed``.
+
+    ``resource`` is the last state fetched (an ``Instance``, ``Snapshot`` or ``GDSSession``).
+    """
+
+    def __init__(self, message: str, *, resource: object) -> None:
+        super().__init__(message)
+        self.resource = resource
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        return (functools.partial(type(self), str(self), resource=self.resource), ())
+
+
+class WaitTimeoutError(AuraError, TimeoutError):
+    """A ``wait_*`` helper gave up before the operation finished.
+
+    The operation may still be running. ``resource`` is the last state fetched.
+    """
+
+    def __init__(self, message: str, *, resource: object) -> None:
+        super().__init__(message)
+        self.resource = resource
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        return (functools.partial(type(self), str(self), resource=self.resource), ())
+
+
 class MetricNotFoundError(AuraError, LookupError):
     """No Prometheus metric matched the requested name and label filters."""
 
@@ -284,6 +312,8 @@ for _public in (
     AuraTimeoutError,
     AuraClientClosedError,
     AuraResponseError,
+    OperationFailedError,
+    WaitTimeoutError,
     MetricNotFoundError,
     ErrorDetail,
     AuraAPIError,
