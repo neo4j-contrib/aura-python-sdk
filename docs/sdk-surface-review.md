@@ -66,7 +66,7 @@ dataclass `repr` includes `headers`:
 ```python
 class LoggingTransport:
     def send(self, request):
-        log.debug("sending %r", request)   # writes "Authorization: Bearer eyJ..." to logs
+        log.debug("sending %r", request)  # writes "Authorization: Bearer eyJ..." to logs
 ```
 Confirmed: `"SECRET" in repr(HttpRequest(headers={"Authorization": "Bearer SECRET"}, ...))`
 is `True`. Logging the request is the first thing anyone writing a transport or debugging a

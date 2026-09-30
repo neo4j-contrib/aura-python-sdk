@@ -87,7 +87,7 @@ def _delete(key_id: str) -> Call[None]:
 class CMEKService(Service):
     """Customer-managed encryption keys."""
 
-    def list(self, tenant_id: str | None = None) -> builtins.list[CustomerManagedKeySummary]:
+    def list(self, *, tenant_id: str | None = None) -> builtins.list[CustomerManagedKeySummary]:
         """Every key the credentials can access, optionally only those in one tenant."""
         return self._run(_list(tenant_id))
 
@@ -129,7 +129,9 @@ class CMEKService(Service):
 class AsyncCMEKService(AsyncService):
     """Async version of :class:`CMEKService`, with the same arguments and behaviour."""
 
-    async def list(self, tenant_id: str | None = None) -> builtins.list[CustomerManagedKeySummary]:
+    async def list(
+        self, *, tenant_id: str | None = None
+    ) -> builtins.list[CustomerManagedKeySummary]:
         """See :meth:`CMEKService.list`."""
         return await self._run(_list(tenant_id))
 

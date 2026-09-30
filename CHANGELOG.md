@@ -39,3 +39,11 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
   frames. Unexpected exceptions still show a full traceback.
 - The live integration tests skip, instead of failing, when the credentials lack permission for
   an endpoint (HTTP 403).
+- **Breaking:** the source of a copy is now a keyword-only argument, so a target and a source
+  can't be swapped by accident: `overwrite_from_instance(instance_id, *, source_instance_id)`,
+  `overwrite_from_snapshot(instance_id, *, source_snapshot_id)`,
+  `create_from_instance(config, *, source_instance_id)` and
+  `create_from_snapshot(config, *, source_instance_id, source_snapshot_id)`. `config` now comes
+  first, as in `create(config)`.
+- **Breaking:** list filters are keyword-only in every service: `instances.list(tenant_id=...)`,
+  `cmek.list(tenant_id=...)` and `snapshots.list(instance_id, date=...)`.

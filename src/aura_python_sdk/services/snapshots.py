@@ -73,7 +73,7 @@ def _restore(instance_id: str, snapshot_id: str) -> Call[Instance]:
 class SnapshotService(Service):
     """Instance snapshots."""
 
-    def list(self, instance_id: str, date: dt.date | None = None) -> builtins.list[Snapshot]:
+    def list(self, instance_id: str, *, date: dt.date | None = None) -> builtins.list[Snapshot]:
         """Snapshots of an instance taken on ``date``. The API defaults to today."""
         return self._run(_list(instance_id, date))
 
@@ -93,7 +93,9 @@ class SnapshotService(Service):
 class AsyncSnapshotService(AsyncService):
     """Async version of :class:`SnapshotService`, with the same arguments and behaviour."""
 
-    async def list(self, instance_id: str, date: dt.date | None = None) -> builtins.list[Snapshot]:
+    async def list(
+        self, instance_id: str, *, date: dt.date | None = None
+    ) -> builtins.list[Snapshot]:
         """See :meth:`SnapshotService.list`."""
         return await self._run(_list(instance_id, date))
 

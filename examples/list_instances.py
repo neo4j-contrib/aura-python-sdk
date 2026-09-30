@@ -13,7 +13,7 @@ def main() -> int:
     tenant_id = sys.argv[1] if len(sys.argv) > 1 else None
     try:
         with aura.AuraClient.from_env() as client:
-            instances = client.instances.list(tenant_id)
+            instances = client.instances.list(tenant_id=tenant_id)
     except aura.AuraError as err:
         print(f"error: {err}", file=sys.stderr)
         return 1

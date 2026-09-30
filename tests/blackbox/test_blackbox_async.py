@@ -24,7 +24,7 @@ async def test_concurrent_gets_share_one_token(fake_aura: FakeAura) -> None:
 async def test_list_with_filter_and_headers(fake_aura: FakeAura) -> None:
     fake_aura.route("GET", "/v1/instances", Reply.json(200, {"data": []}))
     async with fake_aura.async_client(user_agent="my-app/1") as client:
-        assert await client.instances.list(TENANT_ID) == []
+        assert await client.instances.list(tenant_id=TENANT_ID) == []
     [request] = fake_aura.api_requests()
     assert request.query == f"tenantId={TENANT_ID}"
     assert request.headers["user-agent"] == "my-app/1"

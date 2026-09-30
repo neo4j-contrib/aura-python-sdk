@@ -61,7 +61,7 @@ def main() -> int:
 
     try:
         with aura.AuraClient.from_env() as client:
-            for summary in client.instances.list(tenant_id):
+            for summary in client.instances.list(tenant_id=tenant_id):
                 if client.instances.get(summary.id).type == aura.InstanceType.FREE_DB:
                     print(
                         f"{summary.name} ({summary.id}) already uses the free tier", file=sys.stderr

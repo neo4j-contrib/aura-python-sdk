@@ -178,16 +178,16 @@ Creation is asynchronous: poll `get()` until the status is `running`. See
 
 | Method | What it does |
 | --- | --- |
-| `list(tenant_id=None)` | Summaries of every instance, optionally in one tenant. |
+| `list(*, tenant_id=None)` | Summaries of every instance, optionally in one tenant. |
 | `get(instance_id)` | Full details. |
 | `create(config)` | Starts creating an instance. Returns the initial credentials. |
-| `create_from_instance(source_instance_id, config)` | Clones another instance's current data. |
-| `create_from_snapshot(source_instance_id, source_snapshot_id, config)` | Creates from an exportable snapshot. |
+| `create_from_instance(config, *, source_instance_id)` | Clones another instance's current data. |
+| `create_from_snapshot(config, *, source_instance_id, source_snapshot_id)` | Creates from an exportable snapshot. |
 | `update(instance_id, *, name, memory, storage, vector_optimized, graph_analytics_plugin, cdc_enrichment_mode, secondaries_count)` | Changes only the fields you pass. |
 | `pause(instance_id)` / `resume(instance_id)` | |
 | `delete(instance_id)` | Cannot be undone. |
-| `overwrite_from_instance(instance_id, source_instance_id)` | Replaces the data with another instance's. |
-| `overwrite_from_snapshot(instance_id, source_snapshot_id)` | Replaces the data with a snapshot. |
+| `overwrite_from_instance(instance_id, *, source_instance_id)` | Replaces the data with another instance's. |
+| `overwrite_from_snapshot(instance_id, *, source_snapshot_id)` | Replaces the data with a snapshot. |
 | `estimate_size(*, node_count, relationship_count, instance_type, algorithm_categories)` | Sizing for AuraDS instances. |
 | `upgrade(instance_id, *, memory, storage)` | Professional to Business Critical. Pass both sizes, or neither. |
 
@@ -199,7 +199,7 @@ Creation is asynchronous: poll `get()` until the status is `running`. See
 import datetime
 
 snapshots = client.snapshots.list("2f49c2b3")  # today
-snapshots = client.snapshots.list("2f49c2b3", datetime.date(2026, 9, 1))
+snapshots = client.snapshots.list("2f49c2b3", date=datetime.date(2026, 9, 1))
 
 started = client.snapshots.create("2f49c2b3")
 snapshot = client.snapshots.get("2f49c2b3", started.snapshot_id)

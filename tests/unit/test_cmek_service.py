@@ -24,13 +24,13 @@ def test_list(api: Api) -> None:
 
 def test_list_filtered_by_tenant(api: Api) -> None:
     api.reply(200, {"data": [KEY]})
-    api.client.cmek.list(TENANT_ID)
+    api.client.cmek.list(tenant_id=TENANT_ID)
     assert api.request.url == f"{BASE}/customer-managed-keys?tenantId={TENANT_ID}"
 
 
 def test_list_invalid_tenant_sends_nothing(api: Api) -> None:
     with pytest.raises(AuraValidationError, match="tenant ID"):
-        api.client.cmek.list("bad")
+        api.client.cmek.list(tenant_id="bad")
     api.assert_no_request()
 
 

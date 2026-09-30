@@ -26,14 +26,14 @@ def test_list(api: Api) -> None:
 
 def test_list_with_date(api: Api) -> None:
     api.reply(200, {"data": []})
-    assert api.client.snapshots.list(INSTANCE_ID, dt.date(2024, 3, 7)) == []
+    assert api.client.snapshots.list(INSTANCE_ID, date=dt.date(2024, 3, 7)) == []
     assert api.request.url == f"{BASE}/instances/{INSTANCE_ID}/snapshots?date=2024-03-07"
 
 
 @pytest.mark.parametrize("value", ["2024-03-07", dt.datetime(2024, 3, 7, tzinfo=dt.UTC)])
 def test_list_rejects_non_date(api: Api, value: object) -> None:
     with pytest.raises(AuraValidationError, match=r"datetime\.date"):
-        api.client.snapshots.list(INSTANCE_ID, value)  # type: ignore[arg-type]
+        api.client.snapshots.list(INSTANCE_ID, date=value)  # type: ignore[arg-type]
     api.assert_no_request()
 
 

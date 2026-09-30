@@ -53,7 +53,7 @@ def test_instances_list_and_get(client: aura.AuraClient) -> None:
 
 def test_instances_list_filtered_by_tenant(client: aura.AuraClient) -> None:
     tenant_id = client.tenants.list()[0].id
-    assert all(i.tenant_id == tenant_id for i in client.instances.list(tenant_id))
+    assert all(i.tenant_id == tenant_id for i in client.instances.list(tenant_id=tenant_id))
 
 
 def test_snapshots_for_first_instance(client: aura.AuraClient) -> None:

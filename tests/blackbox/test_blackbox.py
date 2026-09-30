@@ -37,7 +37,7 @@ def test_list_instances_end_to_end(fake_aura: FakeAura) -> None:
         ),
     )
     with fake_aura.client(default_headers={"X-Team": "db"}) as client:
-        [instance] = client.instances.list(TENANT_ID)
+        [instance] = client.instances.list(tenant_id=TENANT_ID)
 
     assert instance.id == "2f49c2b3"
     token_request, api_request = fake_aura.received

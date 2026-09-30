@@ -238,7 +238,7 @@ def _create_body(config: InstanceConfig) -> dict[str, object]:
 class InstanceService(Service):
     """AuraDB and AuraDS instances."""
 
-    def list(self, tenant_id: str | None = None) -> builtins.list[InstanceSummary]:
+    def list(self, *, tenant_id: str | None = None) -> builtins.list[InstanceSummary]:
         """Every instance the credentials can access, optionally only those in one tenant."""
         return self._run(_list(tenant_id))
 
@@ -255,13 +255,13 @@ class InstanceService(Service):
         return self._run(_create(config))
 
     def create_from_instance(
-        self, source_instance_id: str, config: InstanceConfig
+        self, config: InstanceConfig, *, source_instance_id: str
     ) -> CreatedInstance:
         """Create an instance cloned from the current data of another instance."""
         return self._run(_create(config, source_instance_id=source_instance_id))
 
     def create_from_snapshot(
-        self, source_instance_id: str, source_snapshot_id: str, config: InstanceConfig
+        self, config: InstanceConfig, *, source_instance_id: str, source_snapshot_id: str
     ) -> CreatedInstance:
         """Create an instance from a snapshot.
 
@@ -339,11 +339,11 @@ class InstanceService(Service):
         """Resume a paused instance."""
         return self._run(_lifecycle(instance_id, "resume"))
 
-    def overwrite_from_instance(self, instance_id: str, source_instance_id: str) -> Instance:
+    def overwrite_from_instance(self, instance_id: str, *, source_instance_id: str) -> Instance:
         """Replace an instance's data with the current data of another instance."""
         return self._run(_overwrite(instance_id, source_instance_id=source_instance_id))
 
-    def overwrite_from_snapshot(self, instance_id: str, source_snapshot_id: str) -> Instance:
+    def overwrite_from_snapshot(self, instance_id: str, *, source_snapshot_id: str) -> Instance:
         """Replace an instance's data with a snapshot."""
         return self._run(_overwrite(instance_id, source_snapshot_id=source_snapshot_id))
 
@@ -351,7 +351,7 @@ class InstanceService(Service):
 class AsyncInstanceService(AsyncService):
     """Async version of :class:`InstanceService`, with the same arguments and behaviour."""
 
-    async def list(self, tenant_id: str | None = None) -> builtins.list[InstanceSummary]:
+    async def list(self, *, tenant_id: str | None = None) -> builtins.list[InstanceSummary]:
         """See :meth:`InstanceService.list`."""
         return await self._run(_list(tenant_id))
 
@@ -364,13 +364,13 @@ class AsyncInstanceService(AsyncService):
         return await self._run(_create(config))
 
     async def create_from_instance(
-        self, source_instance_id: str, config: InstanceConfig
+        self, config: InstanceConfig, *, source_instance_id: str
     ) -> CreatedInstance:
         """See :meth:`InstanceService.create_from_instance`."""
         return await self._run(_create(config, source_instance_id=source_instance_id))
 
     async def create_from_snapshot(
-        self, source_instance_id: str, source_snapshot_id: str, config: InstanceConfig
+        self, config: InstanceConfig, *, source_instance_id: str, source_snapshot_id: str
     ) -> CreatedInstance:
         """See :meth:`InstanceService.create_from_snapshot`."""
         return await self._run(_create(config, source_instance_id, source_snapshot_id))
@@ -432,10 +432,14 @@ class AsyncInstanceService(AsyncService):
         """See :meth:`InstanceService.resume`."""
         return await self._run(_lifecycle(instance_id, "resume"))
 
-    async def overwrite_from_instance(self, instance_id: str, source_instance_id: str) -> Instance:
+    async def overwrite_from_instance(
+        self, instance_id: str, *, source_instance_id: str
+    ) -> Instance:
         """See :meth:`InstanceService.overwrite_from_instance`."""
         return await self._run(_overwrite(instance_id, source_instance_id=source_instance_id))
 
-    async def overwrite_from_snapshot(self, instance_id: str, source_snapshot_id: str) -> Instance:
+    async def overwrite_from_snapshot(
+        self, instance_id: str, *, source_snapshot_id: str
+    ) -> Instance:
         """See :meth:`InstanceService.overwrite_from_snapshot`."""
         return await self._run(_overwrite(instance_id, source_snapshot_id=source_snapshot_id))
