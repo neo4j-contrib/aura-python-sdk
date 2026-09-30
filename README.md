@@ -111,6 +111,11 @@ status, including 429 and 5xx, is never retried. If a request might already have
 server (a read timeout or a dropped connection), only idempotent methods (`GET`, `PUT`, `DELETE`)
 are retried. That means a `create` or `pause` is never sent twice.
 
+If the API rejects the cached OAuth token with a 401 (for example because it was revoked), the
+client fetches a new token and sends the request once more. The API rejected the first attempt
+without acting on it, so this is safe for every method. A second 401 raises
+`AuthenticationError`.
+
 ## Async
 
 `AsyncAuraClient` takes the same options, and its services have the same methods, which you

@@ -6,6 +6,7 @@ import json
 import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from http import HTTPStatus
 from urllib.parse import quote, urlencode
 
 from aura_python_sdk._errors import (
@@ -94,8 +95,8 @@ class _Requests:
         self, method: str, url: str, response: HttpResponse, invalidate: Callable[[], None]
     ) -> ApiResponse:
         if not 200 <= response.status_code < 300:
-            if response.status_code == 401:
-                # The token may have been revoked; make the next call fetch a fresh one.
+            if response.status_code == HTTPStatus.UNAUTHORIZED:
+                # Even the fresh token was rejected; don't keep it for the next call.
                 invalidate()
             error = api_error_from_response(response.status_code, response.body, response.headers)
             self.logger.debug(
@@ -162,14 +163,21 @@ class RequestService:
         # context.WithTimeout that wraps each Go service method.
         deadline = self._http.clock() + self._requests.timeout
         url = self._requests.resolve_url(path, params)
+        body = self._requests.body(json_body)
+        response = self._send(method, url, body, deadline)
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
+            # The cached token may have been revoked or rotated. The server rejected the request
+            # without acting on it, so it is safe to send once more with a fresh token.
+            self._auth.invalidate()
+            response = self._send(method, url, body, deadline)
+        return self._requests.finish(method, url, response, self._auth.invalidate)
+
+    def _send(self, method: str, url: str, body: bytes | None, deadline: float) -> HttpResponse:
         headers = self._requests.headers(self._auth.authorization_header(deadline=deadline))
         self._requests.logger.debug(
             "making authenticated API request", extra={"method": method, "url": url}
         )
-        response = self._http.send(
-            method, url, headers, self._requests.body(json_body), deadline=deadline
-        )
-        return self._requests.finish(method, url, response, self._auth.invalidate)
+        return self._http.send(method, url, headers, body, deadline=deadline)
 
 
 class AsyncRequestService:
@@ -211,12 +219,20 @@ class AsyncRequestService:
         self._requests.check_open()
         deadline = self._http.clock() + self._requests.timeout
         url = self._requests.resolve_url(path, params)
+        body = self._requests.body(json_body)
+        response = await self._send(method, url, body, deadline)
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
+            # See RequestService.request: retry once with a fresh token.
+            self._auth.invalidate()
+            response = await self._send(method, url, body, deadline)
+        return self._requests.finish(method, url, response, self._auth.invalidate)
+
+    async def _send(
+        self, method: str, url: str, body: bytes | None, deadline: float
+    ) -> HttpResponse:
         authorization = await self._auth.authorization_header(deadline=deadline)
         headers = self._requests.headers(authorization)
         self._requests.logger.debug(
             "making authenticated API request", extra={"method": method, "url": url}
         )
-        response = await self._http.send(
-            method, url, headers, self._requests.body(json_body), deadline=deadline
-        )
-        return self._requests.finish(method, url, response, self._auth.invalidate)
+        return await self._http.send(method, url, headers, body, deadline=deadline)

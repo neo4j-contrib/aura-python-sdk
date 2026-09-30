@@ -60,3 +60,6 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
   `TimeoutError`, so generic network error handling catches them.
 - `from_env()` options are now type-checked. A misspelt or wrongly typed option, such as
   `from_env(timout=5)`, is reported by mypy and pyright instead of failing only at runtime.
+- A 401 from the API makes the client fetch a new OAuth token and resend the request once, so a
+  revoked or rotated token no longer fails the next call. A second 401 still raises
+  `AuthenticationError`.

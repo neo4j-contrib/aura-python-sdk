@@ -133,7 +133,10 @@ def test_error_response_raises_mapped_exception() -> None:
     assert info.value.details[0].message == "Instance not found"
 
 
-def test_401_invalidates_cached_token() -> None:
+@pytest.mark.parametrize("method", ["GET", "POST", "PATCH", "DELETE"])
+def test_401_retries_once_with_a_fresh_token(method: str) -> None:
+    # The server rejects a request with a revoked token before acting on it, so even a POST
+    # is safe to resend.
     transport = FakeTransport(
         [
             token_response("old"),
@@ -142,13 +145,33 @@ def test_401_invalidates_cached_token() -> None:
             json_response(200, {}),
         ]
     )
+    _service(transport).request(method, "instances", json_body={"a": 1})
+    assert [r.headers["Authorization"] for r in transport.api_requests] == [
+        "Bearer old",
+        "Bearer new",
+    ]
+    assert [r.body for r in transport.api_requests] == [b'{"a":1}', b'{"a":1}']
+
+
+def test_second_401_raises_and_drops_the_token() -> None:
+    transport = FakeTransport(
+        [
+            token_response("old"),
+            json_response(401, {"errors": [{"message": "expired"}]}),
+            token_response("new"),
+            json_response(401, {"errors": [{"message": "no access"}]}),
+            token_response("newer"),
+            json_response(200, {}),
+        ]
+    )
     service = _service(transport)
-    with pytest.raises(AuthenticationError):
+    with pytest.raises(AuthenticationError, match="no access"):
         service.get("instances")
     service.get("instances")
     assert [r.headers["Authorization"] for r in transport.api_requests] == [
         "Bearer old",
         "Bearer new",
+        "Bearer newer",
     ]
 
 

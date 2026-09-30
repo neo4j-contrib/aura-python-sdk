@@ -121,8 +121,6 @@ async def test_token_refreshed_after_401() -> None:
         ]
     )
     client = aura.AsyncAuraClient(client_id="id", client_secret="secret", transport=transport)
-    with pytest.raises(aura.AuthenticationError):
-        await client.tenants.list()
     assert await client.tenants.list() == []
     assert [r.headers["Authorization"] for r in transport.api_requests] == [
         "Bearer old",
