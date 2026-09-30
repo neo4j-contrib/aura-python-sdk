@@ -1,0 +1,26 @@
+# Keeps the SHA-pinned GitHub Actions and the uv lockfile current through weekly PRs.
+# Dependabot updates a pinned SHA together with its "# vX.Y.Z" comment.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "CI"
+
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # Dev tools (pytest, ruff, mypy...) in one PR; runtime dependencies (httpx) separately.
+      dev-dependencies:
+        dependency-type: development
+      runtime-dependencies:
+        dependency-type: production
+    commit-message:
+      prefix: "Deps"

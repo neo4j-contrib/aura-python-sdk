@@ -20,6 +20,7 @@ def _config(**overrides: Any) -> ClientConfig:
         "client_secret": "secret",
         "base_url": DEFAULT_BASE_URL,
         "allow_insecure_base_url": False,
+        "allow_untrusted_metrics_urls": False,
         "timeout": DEFAULT_TIMEOUT,
         "max_retries": DEFAULT_MAX_RETRIES,
         "max_response_size": DEFAULT_MAX_RESPONSE_SIZE,

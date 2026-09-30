@@ -67,6 +67,9 @@ class HttpTransport(Protocol):
     :class:`~aura_python_sdk.AuraTimeoutError` for timeouts. It sets ``request_sent=False`` only
     when it is certain the server never received the request. It returns non-2xx responses
     normally instead of raising.
+
+    If it follows redirects, it must not send ``Authorization`` to a different origin, and should
+    refuse a redirect from HTTPS to HTTP, as the built-in httpx transport does.
     """
 
     def send(self, request: HttpRequest) -> HttpResponse: ...

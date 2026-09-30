@@ -100,6 +100,42 @@ def test_redirects_are_followed() -> None:
     assert response.body == b"moved"
 
 
+def _redirecting(start: str, target: str, seen: list[str]) -> object:
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        if str(request.url) == start:
+            return httpx.Response(307, headers={"Location": target})
+        return httpx.Response(200, content=b"final")
+
+    return handler
+
+
+@pytest.mark.parametrize("target", ["http://api.neo4j.io/v1/new", "http://evil.example.com/p"])
+def test_redirect_from_https_to_http_is_refused(target: str) -> None:
+    # httpx would drop Authorization but still send the body, and trust the reply, in cleartext.
+    seen: list[str] = []
+    start = "https://api.neo4j.io/v1/old"
+    with pytest.raises(AuraResponseError, match="refused a redirect from HTTPS to http"):
+        _transport(_redirecting(start, target, seen)).send(_request(url=start))
+    assert seen == [start]  # the cleartext request was never sent
+
+
+@pytest.mark.parametrize(
+    ("start", "target"),
+    [
+        ("https://api.neo4j.io/v1/old", "https://api.neo4j.io/v1/new"),
+        ("https://api.neo4j.io/v1/old", "/v1/new"),
+        ("https://api.neo4j.io/v1/old", "//other.neo4j.io/v1/new"),  # scheme-relative stays HTTPS
+        ("http://localhost:8080/v1/old", "http://localhost:8080/v1/new"),  # insecure test setups
+    ],
+)
+def test_other_redirects_are_followed(start: str, target: str) -> None:
+    seen: list[str] = []
+    response = _transport(_redirecting(start, target, seen)).send(_request(url=start))
+    assert response.body == b"final"
+    assert len(seen) == 2
+
+
 @pytest.mark.parametrize(
     ("exc", "expected_type", "request_sent"),
     [
@@ -200,3 +236,17 @@ async def test_async_network_errors_are_translated(
         await _async_transport(handler).send(_request())
     assert type(info.value) is expected_type
     assert info.value.request_sent is request_sent
+
+
+@pytest.mark.anyio
+async def test_async_redirect_from_https_to_http_is_refused() -> None:
+    seen: list[str] = []
+    start = "https://api.neo4j.io/v1/old"
+    sync_handler = _redirecting(start, "http://api.neo4j.io/v1/new", seen)
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return sync_handler(request)  # type: ignore[operator, no-any-return]
+
+    with pytest.raises(AuraResponseError, match="refused a redirect"):
+        await _async_transport(handler).send(_request(url=start))
+    assert seen == [start]

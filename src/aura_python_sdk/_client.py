@@ -52,6 +52,7 @@ class _CommonOptions(TypedDict, total=False):
 
     base_url: str
     allow_insecure_base_url: bool
+    allow_untrusted_metrics_urls: bool
     timeout: float
     max_retries: int
     max_response_size: int
@@ -106,9 +107,10 @@ class AuraClient:
         client_id: Aura API client ID.
         client_secret: Aura API client secret.
         base_url: API base URL. It must use HTTPS unless ``allow_insecure_base_url`` is set.
-        allow_insecure_base_url: Allow an ``http://`` base URL, and Prometheus URLs outside
-            ``https://*.neo4j.io``. Only for local test servers, because credentials would be sent
-            in cleartext.
+        allow_insecure_base_url: Allow an ``http://`` base URL. Only for local test servers,
+            because credentials would be sent in cleartext.
+        allow_untrusted_metrics_urls: Allow Prometheus URLs other than ``https://*.neo4j.io``.
+            The Aura API token is sent to the metrics URL, so only for local test servers.
         timeout: Seconds allowed for each API call, covering the token fetch, retries and backoff.
         max_retries: How many times to retry after a network failure, or after a 429, 502, 503
             or 504 response to an idempotent request (``GET``, ``PUT``, ``DELETE``). ``POST`` and
@@ -129,6 +131,7 @@ class AuraClient:
         client_secret: str,
         base_url: str = DEFAULT_BASE_URL,
         allow_insecure_base_url: bool = False,
+        allow_untrusted_metrics_urls: bool = False,
         timeout: float = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
         max_response_size: int = DEFAULT_MAX_RESPONSE_SIZE,
@@ -142,6 +145,7 @@ class AuraClient:
             client_secret=client_secret,
             base_url=base_url,
             allow_insecure_base_url=allow_insecure_base_url,
+            allow_untrusted_metrics_urls=allow_untrusted_metrics_urls,
             timeout=timeout,
             max_retries=max_retries,
             max_response_size=max_response_size,
@@ -219,7 +223,7 @@ class AuraClient:
         self.prometheus = PrometheusService(
             self._api,
             self._logger.getChild("prometheus"),
-            allow_untrusted_urls=self._config.allow_insecure_base_url,
+            allow_untrusted_urls=self._config.allow_untrusted_metrics_urls,
         )
 
     @classmethod
@@ -305,6 +309,7 @@ class AsyncAuraClient:
         client_secret: str,
         base_url: str = DEFAULT_BASE_URL,
         allow_insecure_base_url: bool = False,
+        allow_untrusted_metrics_urls: bool = False,
         timeout: float = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
         max_response_size: int = DEFAULT_MAX_RESPONSE_SIZE,
@@ -318,6 +323,7 @@ class AsyncAuraClient:
             client_secret=client_secret,
             base_url=base_url,
             allow_insecure_base_url=allow_insecure_base_url,
+            allow_untrusted_metrics_urls=allow_untrusted_metrics_urls,
             timeout=timeout,
             max_retries=max_retries,
             max_response_size=max_response_size,
@@ -392,7 +398,7 @@ class AsyncAuraClient:
         self.prometheus = AsyncPrometheusService(
             self._api,
             self._logger.getChild("prometheus"),
-            allow_untrusted_urls=self._config.allow_insecure_base_url,
+            allow_untrusted_urls=self._config.allow_untrusted_metrics_urls,
         )
 
     @classmethod

@@ -60,7 +60,7 @@ route.
 
 ## 2. Anyone with write access can publish, and the release actions are pinned by mutable tags (Low now, Medium before PyPI)
 
-**Status:** Partly done. The `pypi` environment exists and only allows `v*` tags, but has no required reviewer. There are no rulesets for tags or `main`, and the actions are still pinned by tag.
+**Status:** Partly done. Every action in both workflows is pinned to a commit SHA, and Dependabot keeps the pins current (`f8c0207`). The `pypi` environment only allows `v*` tags. Still to do in GitHub settings: a required reviewer on `pypi`, a `v*` tag ruleset, and a `main` branch ruleset.
 
 **Where:** the GitHub repository settings, and `.github/workflows/release.yml`
 
@@ -92,7 +92,7 @@ The impact is limited while releases go only to TestPyPI, and it becomes real wi
 
 ## 3. `.` and `..` as a CMEK key ID or GDS session ID send the request to a parent path (Low)
 
-**Status:** Open.
+**Status:** Fixed in `8343e23`: `build_path` rejects `.` and `..`.
 
 **Where:** `src/aura_python_sdk/_internal/_request.py:19` (`build_path`), plus
 `services/cmek.py` and `services/graph_analytics.py`, which only check these IDs are non-empty.
@@ -118,7 +118,7 @@ That protects every service at once.
 
 ## 4. The access token appears in `_Token`'s `repr`, and `default_headers` in `ClientConfig`'s (Low)
 
-**Status:** Open.
+**Status:** Fixed in `344107b`.
 
 **Where:** `src/aura_python_sdk/_internal/_auth.py:29` (`_Token`) and
 `src/aura_python_sdk/_config.py:26` (`ClientConfig`)
@@ -135,7 +135,7 @@ own secret header, such as a proxy key. The public objects are all fine: the cli
 
 ## 5. Redirects from HTTPS to HTTP are followed (Low)
 
-**Status:** Open.
+**Status:** Fixed in `b67b0c3`: the httpx transports raise `AuraResponseError` before following a redirect from HTTPS to HTTP.
 
 **Where:** `src/aura_python_sdk/_internal/http/_httpx.py:55` (`follow_redirects=True`)
 
@@ -152,7 +152,7 @@ in an httpx event hook, and raise `AuraConnectionError` otherwise.
 
 ## 6. Deeply nested JSON raises `RecursionError`, not an SDK error (Low)
 
-**Status:** Open.
+**Status:** Fixed in `f2e3c9f`.
 
 **Where:** `src/aura_python_sdk/_internal/_request.py:30` (`ApiResponse.json`)
 
@@ -165,7 +165,7 @@ Prometheus responses go through the text parser instead.
 
 ## 7. `allow_insecure_base_url` also turns off the Prometheus allowlist (Info)
 
-**Status:** Open.
+**Status:** Fixed in `cb990d7`: a new `allow_untrusted_metrics_urls` option lifts the allowlist, and `allow_insecure_base_url` no longer does.
 
 **Where:** `src/aura_python_sdk/_client.py`, where `allow_untrusted_urls` comes from
 `allow_insecure_base_url`

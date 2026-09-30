@@ -46,13 +46,35 @@ def _too_large(limit: int) -> AuraResponseError:
     return AuraResponseError(f"response body exceeded limit of {limit} bytes")
 
 
+def _refuse_downgrade(response: httpx.Response) -> None:
+    """Stop a redirect from HTTPS to HTTP before httpx follows it.
+
+    httpx already drops ``Authorization`` on the downgrade, but would still send the rest of the
+    request, and read the response, in cleartext. An ``http://`` base URL is unaffected, because
+    its redirects start on HTTP.
+    """
+    if not response.has_redirect_location or response.request.url.scheme != "https":
+        return
+    target = response.request.url.join(response.headers["location"])
+    if target.scheme != "https":
+        raise AuraResponseError(f"refused a redirect from HTTPS to {target.scheme}: {target}")
+
+
+async def _refuse_downgrade_async(response: httpx.Response) -> None:
+    _refuse_downgrade(response)
+
+
 class HttpxTransport:
     """An :class:`~aura_python_sdk.HttpTransport` backed by a pooled ``httpx.Client``."""
 
     def __init__(self, *, _httpx_transport: httpx.BaseTransport | None = None) -> None:
         # _httpx_transport is only for tests; it replaces the network layer below httpx.
         self._client = httpx.Client(
-            verify=_tls_context(), limits=_LIMITS, follow_redirects=True, transport=_httpx_transport
+            verify=_tls_context(),
+            limits=_LIMITS,
+            follow_redirects=True,
+            event_hooks={"response": [_refuse_downgrade]},
+            transport=_httpx_transport,
         )
 
     def send(self, request: HttpRequest) -> HttpResponse:
@@ -84,7 +106,11 @@ class AsyncHttpxTransport:
 
     def __init__(self, *, _httpx_transport: httpx.AsyncBaseTransport | None = None) -> None:
         self._client = httpx.AsyncClient(
-            verify=_tls_context(), limits=_LIMITS, follow_redirects=True, transport=_httpx_transport
+            verify=_tls_context(),
+            limits=_LIMITS,
+            follow_redirects=True,
+            event_hooks={"response": [_refuse_downgrade_async]},
+            transport=_httpx_transport,
         )
 
     async def send(self, request: HttpRequest) -> HttpResponse:

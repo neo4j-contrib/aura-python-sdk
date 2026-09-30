@@ -55,7 +55,8 @@ class AuraClientClosedError(AuraError, RuntimeError):
 
 
 class AuraResponseError(AuraError):
-    """The API response could not be used: too large, not valid JSON, or an unexpected shape."""
+    """The API response could not be used: too large, not valid JSON, an unexpected shape, or a
+    redirect from HTTPS to HTTP."""
 
 
 class OperationFailedError(AuraError):

@@ -87,7 +87,8 @@ client = aura.AuraClient(
 | --- | --- | --- |
 | `client_id`, `client_secret` | required | Must not be empty. |
 | `base_url` | `https://api.neo4j.io` | Must be HTTPS. |
-| `allow_insecure_base_url` | `False` | Allows an `http://` base URL, and metrics URLs outside `*.neo4j.io`. For local test servers only. |
+| `allow_insecure_base_url` | `False` | Allows an `http://` base URL. For local test servers only. |
+| `allow_untrusted_metrics_urls` | `False` | Allows Prometheus URLs other than `https://*.neo4j.io`. The Aura token is sent to them, so for local test servers only. |
 | `timeout` | `120` | Seconds allowed for each call (see below). |
 | `max_retries` | `3` | `0` disables retries. |
 | `max_response_size` | 10 MB | Larger responses raise `AuraResponseError`. |
@@ -288,7 +289,8 @@ client.graph_analytics.delete(session.id)
 
 Get a metrics endpoint from `tenants.get_metrics_integration()` or from an instance's
 `metrics_integration_url`. The client sends its Aura token to that endpoint, so only
-`https://*.neo4j.io` URLs are accepted.
+`https://*.neo4j.io` URLs are accepted, unless you pass `allow_untrusted_metrics_urls=True` for
+a local test server.
 
 ```python
 instance = client.instances.get("a1b2c3d4")
@@ -319,7 +321,7 @@ AuraError
 ├── AuraConnectionError   (ConnectionError) network failure after retries
 │   └── AuraTimeoutError  (TimeoutError)
 ├── AuraClientClosedError (RuntimeError)   the client was used after close()
-├── AuraResponseError                      oversized or malformed response
+├── AuraResponseError                      oversized or malformed response, or HTTPS->HTTP redirect
 ├── OperationFailedError                   a wait_* helper saw the operation fail
 ├── WaitTimeoutError     (TimeoutError)    a wait_* helper gave up; .resource is the last state
 ├── MetricNotFoundError      (LookupError)
@@ -387,6 +389,10 @@ class RecordingTransport:
     def close(self) -> None:
         pass
 ```
+
+If your transport follows redirects, make sure it doesn't send `Authorization` to a different
+origin (httpx and requests both drop it), and refuse a redirect from HTTPS to HTTP. The built-in
+transport does both.
 
 For a network failure, a transport should raise `AuraConnectionError` or `AuraTimeoutError`. Set
 `request_sent=False` only when the server certainly never received the request, because that
@@ -469,12 +475,14 @@ clone before importing the package. Between tags, `__version__` has a local suff
 Releases are published to [PyPI](https://pypi.org/project/aura-python-sdk/). There is no
 version number to edit:
 
-1. Merge the changes to `main`.
-2. On `main`, add a `## vX.Y.Z` section to [CHANGELOG.md](CHANGELOG.md), and commit and push
-   it. That section becomes the GitHub release notes.
-3. Tag the commit and push the tag:
+1. In the pull request, rename the `## Unreleased` section of [CHANGELOG.md](CHANGELOG.md) to
+   `## vX.Y.Z - YYYY-MM-DD`, and add a new, empty `## Unreleased` above it. That section becomes
+   the GitHub release notes.
+2. Merge the pull request.
+3. Tag the merge commit on `main` and push the tag:
 
    ```sh
+   git switch main && git pull
    git tag v0.2.0
    git push origin v0.2.0
    ```

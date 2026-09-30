@@ -8,6 +8,43 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 
 ## Unreleased
 
+## v0.1.4 - 2026-09-30
+
+Fixes from the security review ([docs/security-review.md](docs/security-review.md)).
+
+### Changed
+
+- **Breaking:** `allow_insecure_base_url` no longer lifts the Prometheus URL allowlist. Use the
+  new `allow_untrusted_metrics_urls=True` to fetch metrics from a host other than
+  `https://*.neo4j.io`. A flag meant for an `http://` test API server also let the Aura token go
+  to any metrics URL.
+
+### Fixed
+
+- An ID of exactly `.` or `..` raises `AuraValidationError`. URL parsers resolve these segments,
+  so `cmek.delete("..")` sent `DELETE /v1`, and `graph_analytics.delete("..")` sent
+  `DELETE /v1/graph-analytics`. CMEK key and GDS session IDs were affected; the other IDs are
+  format-checked.
+- The SDK's internal token and configuration objects keep the access token and
+  `default_headers` out of their `repr`, so crash reporters that record local variables don't
+  capture them.
+- A deeply nested JSON response raises `AuraResponseError` instead of a raw `RecursionError`
+  that `except AuraError` missed.
+- A redirect from HTTPS to HTTP raises `AuraResponseError` instead of being followed. httpx
+  already dropped the token on such a redirect, but still sent the rest of the request, and read
+  the response, in cleartext. Redirects that stay on HTTPS, and `http://` test servers, are
+  unaffected.
+- The live write test (`pytest -m integration`) ran whenever credentials were set, creating a
+  billed AuraDB Professional instance without `AURA_INTEGRATION_WRITE=1`: its skip condition had
+  ended up on a helper function. It is back on the test, and a unit test that runs in CI checks
+  it stays there.
+
+### Security
+
+- Every GitHub Action in the CI and release workflows is pinned to a full commit SHA, and
+  Dependabot keeps the pins and the uv lockfile current. A moved tag on a third-party action can
+  no longer change what runs with publishing rights.
+
 ## v0.1.3 - 2026-09-30
 
 The first release published to PyPI through CI.

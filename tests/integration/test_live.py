@@ -94,9 +94,6 @@ def test_bad_credentials_are_rejected() -> None:
         bad.tenants.list()
 
 
-@pytest.mark.skipif(
-    not (WRITES_ENABLED and TENANT_ID), reason="needs AURA_INTEGRATION_WRITE=1 and AURA_TENANT_ID"
-)
 def _smallest_pro_config(client: aura.AuraClient) -> aura.InstanceConfig:
     """The cheapest AuraDB Professional configuration the tenant offers, preferring GCP."""
     offered = [
@@ -123,6 +120,9 @@ def _smallest_pro_config(client: aura.AuraClient) -> aura.InstanceConfig:
     )
 
 
+@pytest.mark.skipif(
+    not (WRITES_ENABLED and TENANT_ID), reason="needs AURA_INTEGRATION_WRITE=1 and AURA_TENANT_ID"
+)
 def test_create_pause_resume_delete(client: aura.AuraClient) -> None:
     # Uses the smallest AuraDB Professional instance: the free tier can't be paused. It runs for
     # a few minutes, so the cost is small.
