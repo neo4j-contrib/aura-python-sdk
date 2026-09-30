@@ -34,6 +34,10 @@ Fixes from the security review ([docs/security-review.md](docs/security-review.m
   already dropped the token on such a redirect, but still sent the rest of the request, and read
   the response, in cleartext. Redirects that stay on HTTPS, and `http://` test servers, are
   unaffected.
+- The live write test (`pytest -m integration`) ran whenever credentials were set, creating a
+  billed AuraDB Professional instance without `AURA_INTEGRATION_WRITE=1`: its skip condition had
+  ended up on a helper function. It is back on the test, and a unit test that runs in CI checks
+  it stays there.
 
 ### Security
 
