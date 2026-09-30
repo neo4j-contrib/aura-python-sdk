@@ -13,7 +13,7 @@ import json
 import logging
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import urlencode
 
 from aura_python_sdk._errors import AuraResponseError, AuthenticationError, api_error_from_response
@@ -28,7 +28,8 @@ MAX_EXPIRES_IN = 86400 * 365
 @dataclass(frozen=True, slots=True)
 class _Token:
     token_type: str
-    access_token: str
+    # Kept out of repr: crash reporters record the repr of local variables.
+    access_token: str = field(repr=False)
     expires_at: float  # on the HttpService clock (monotonic)
 
     @property

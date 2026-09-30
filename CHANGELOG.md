@@ -14,6 +14,9 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
   so `cmek.delete("..")` sent `DELETE /v1`, and `graph_analytics.delete("..")` sent
   `DELETE /v1/graph-analytics`. CMEK key and GDS session IDs were affected; the other IDs are
   format-checked.
+- The SDK's internal token and configuration objects keep the access token and
+  `default_headers` out of their `repr`, so crash reporters that record local variables don't
+  capture them.
 
 ## v0.1.3 - 2026-09-30
 

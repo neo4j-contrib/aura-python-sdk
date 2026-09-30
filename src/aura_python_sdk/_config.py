@@ -34,7 +34,8 @@ class ClientConfig:
     max_retries: int
     max_response_size: int
     user_agent: str
-    default_headers: Mapping[str, str]
+    # A caller may put their own secret here, such as a proxy key.
+    default_headers: Mapping[str, str] = field(repr=False)
 
 
 def build_config(

@@ -118,6 +118,23 @@ def test_from_env_options_match_constructor(client_class: type, options: type) -
     assert typing.get_type_hints(options) == expected
 
 
+def test_internal_objects_keep_secrets_out_of_repr() -> None:
+    # Crash reporters such as Sentry record the repr of local variables in each frame.
+    transport = FakeTransport([token_response("tok-value"), json_response(200, {"data": []})])
+    client = AuraClient(
+        client_id="id",
+        client_secret="s3cr3t",
+        default_headers={"X-Api-Key": "header-secret"},
+        transport=transport,
+    )
+    client.tenants.list()
+    token = client._auth._source.token
+    assert token is not None
+    assert "tok-value" not in repr(token)
+    assert "header-secret" not in repr(client._config)
+    assert "s3cr3t" not in repr(client._config)
+
+
 def test_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AURA_CLIENT_ID", "env-id")
     monkeypatch.setenv("AURA_CLIENT_SECRET", "env-secret")
