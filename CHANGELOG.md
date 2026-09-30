@@ -8,6 +8,10 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 
 ## Unreleased
 
+## v0.1.1 - 2026-09-30
+
+The first release, published to TestPyPI.
+
 ### Added
 
 - `AsyncAuraClient` for asyncio. It has the same options and services as `AuraClient`, shares
