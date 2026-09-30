@@ -45,13 +45,59 @@ def test_passes_request_through() -> None:
     assert request.max_response_size == 1024
 
 
-@pytest.mark.parametrize("status", [429, 500, 502, 503, 504, 404])
-def test_http_status_responses_are_never_retried(status: int) -> None:
+@pytest.mark.parametrize("status", [429, 502, 503, 504])
+@pytest.mark.parametrize("method", ["GET", "DELETE"])
+def test_retryable_statuses_are_retried_for_idempotent_methods(status: int, method: str) -> None:
+    clock = FakeClock()
+    transport = FakeTransport([HttpResponse(status), HttpResponse(status), HttpResponse(200)])
+    response = _service(transport, clock).send(method, URL, {}, None, deadline=clock.now + 30)
+    assert response.status_code == 200
+    assert len(transport.requests) == 3
+    assert clock.sleeps == [1.0, 2.0]
+
+
+@pytest.mark.parametrize("status", [429, 502, 503, 504])
+@pytest.mark.parametrize("method", ["POST", "PATCH"])
+def test_retryable_statuses_are_not_retried_for_other_methods(status: int, method: str) -> None:
+    clock = FakeClock()
+    transport = FakeTransport([HttpResponse(status)])
+    response = _service(transport, clock).send(method, URL, {}, b"{}", deadline=clock.now + 30)
+    assert response.status_code == status
+    assert len(transport.requests) == 1
+
+
+@pytest.mark.parametrize("status", [400, 401, 404, 409, 500])
+def test_other_statuses_are_never_retried(status: int) -> None:
     clock = FakeClock()
     transport = FakeTransport([HttpResponse(status)])
     response = _service(transport, clock).send("GET", URL, {}, None, deadline=clock.now + 30)
     assert response.status_code == status
     assert len(transport.requests) == 1
+
+
+def test_retry_after_is_honoured() -> None:
+    clock = FakeClock()
+    transport = FakeTransport([HttpResponse(429, {"Retry-After": "7"}), HttpResponse(200)])
+    _service(transport, clock).send("GET", URL, {}, None, deadline=clock.now + 30)
+    assert clock.sleeps == [7.0]
+
+
+def test_retry_after_past_the_deadline_returns_the_response() -> None:
+    clock = FakeClock()
+    transport = FakeTransport([HttpResponse(429, {"Retry-After": "60"})])
+    response = _service(transport, clock).send("GET", URL, {}, None, deadline=clock.now + 30)
+    assert response.status_code == 429
+    assert clock.sleeps == []
+
+
+def test_status_and_network_retries_share_max_retries() -> None:
+    clock = FakeClock()
+    transport = FakeTransport([_sent(), HttpResponse(503), HttpResponse(503)])
+    response = _service(transport, clock, max_retries=2).send(
+        "GET", URL, {}, None, deadline=clock.now + 60
+    )
+    assert response.status_code == 503
+    assert len(transport.requests) == 3
 
 
 def test_retries_network_errors_with_backoff() -> None:

@@ -116,13 +116,15 @@ def test_create_sends_optional_fields_when_set(api: Api) -> None:
 
 def test_create_from_instance(api: Api) -> None:
     api.reply(202, {"data": CREATED})
-    api.client.instances.create_from_instance(OTHER_INSTANCE_ID, CONFIG)
+    api.client.instances.create_from_instance(CONFIG, source_instance_id=OTHER_INSTANCE_ID)
     assert api.body == {**CONFIG_JSON, "source_instance_id": OTHER_INSTANCE_ID}
 
 
 def test_create_from_snapshot(api: Api) -> None:
     api.reply(202, {"data": CREATED})
-    api.client.instances.create_from_snapshot(OTHER_INSTANCE_ID, SNAPSHOT_ID, CONFIG)
+    api.client.instances.create_from_snapshot(
+        CONFIG, source_instance_id=OTHER_INSTANCE_ID, source_snapshot_id=SNAPSHOT_ID
+    )
     assert api.body == {
         **CONFIG_JSON,
         "source_instance_id": OTHER_INSTANCE_ID,
@@ -160,11 +162,17 @@ def test_create_requires_instance_config(api: Api) -> None:
 @pytest.mark.parametrize(
     "call",
     [
-        lambda s: s.create_from_instance("", CONFIG),
-        lambda s: s.create_from_instance("bad", CONFIG),
-        lambda s: s.create_from_snapshot("bad", SNAPSHOT_ID, CONFIG),
-        lambda s: s.create_from_snapshot(OTHER_INSTANCE_ID, "bad", CONFIG),
-        lambda s: s.create_from_snapshot(OTHER_INSTANCE_ID, "", CONFIG),
+        lambda s: s.create_from_instance(CONFIG, source_instance_id=""),
+        lambda s: s.create_from_instance(CONFIG, source_instance_id="bad"),
+        lambda s: s.create_from_snapshot(
+            CONFIG, source_instance_id="bad", source_snapshot_id=SNAPSHOT_ID
+        ),
+        lambda s: s.create_from_snapshot(
+            CONFIG, source_instance_id=OTHER_INSTANCE_ID, source_snapshot_id="bad"
+        ),
+        lambda s: s.create_from_snapshot(
+            CONFIG, source_instance_id=OTHER_INSTANCE_ID, source_snapshot_id=""
+        ),
     ],
 )
 def test_create_from_source_validation(api: Api, call: Any) -> None:
@@ -242,7 +250,9 @@ def test_pause_conflict(api: Api) -> None:
 
 def test_overwrite_from_instance(api: Api) -> None:
     api.reply(202, {"data": {**INSTANCE, "status": "overwriting"}})
-    instance = api.client.instances.overwrite_from_instance(INSTANCE_ID, OTHER_INSTANCE_ID)
+    instance = api.client.instances.overwrite_from_instance(
+        INSTANCE_ID, source_instance_id=OTHER_INSTANCE_ID
+    )
     assert instance.status is InstanceStatus.OVERWRITING
     assert api.request.url == f"{BASE}/instances/{INSTANCE_ID}/overwrite"
     assert api.body == {"source_instance_id": OTHER_INSTANCE_ID}
@@ -250,7 +260,7 @@ def test_overwrite_from_instance(api: Api) -> None:
 
 def test_overwrite_from_snapshot(api: Api) -> None:
     api.reply(202, {"data": {**INSTANCE, "status": "overwriting"}})
-    api.client.instances.overwrite_from_snapshot(INSTANCE_ID, SNAPSHOT_ID)
+    api.client.instances.overwrite_from_snapshot(INSTANCE_ID, source_snapshot_id=SNAPSHOT_ID)
     assert api.body == {"source_snapshot_id": SNAPSHOT_ID}
 
 
@@ -262,9 +272,9 @@ def test_overwrite_from_snapshot(api: Api) -> None:
         lambda s: s.pause("../../x"),
         lambda s: s.resume("12345"),
         lambda s: s.update("bad", name="x"),
-        lambda s: s.overwrite_from_instance("bad", OTHER_INSTANCE_ID),
-        lambda s: s.overwrite_from_instance(INSTANCE_ID, "bad"),
-        lambda s: s.overwrite_from_snapshot(INSTANCE_ID, "bad"),
+        lambda s: s.overwrite_from_instance("bad", source_instance_id=OTHER_INSTANCE_ID),
+        lambda s: s.overwrite_from_instance(INSTANCE_ID, source_instance_id="bad"),
+        lambda s: s.overwrite_from_snapshot(INSTANCE_ID, source_snapshot_id="bad"),
     ],
 )
 def test_invalid_ids_send_nothing(api: Api, call: Any) -> None:
@@ -278,13 +288,13 @@ def test_invalid_ids_send_nothing(api: Api, call: Any) -> None:
 
 def test_list_filtered_by_tenant(api: Api) -> None:
     api.reply(200, {"data": []})
-    api.client.instances.list(TENANT_ID)
+    api.client.instances.list(tenant_id=TENANT_ID)
     assert api.request.url == f"{BASE}/instances?tenantId={TENANT_ID}"
 
 
 def test_list_invalid_tenant_sends_nothing(api: Api) -> None:
     with pytest.raises(AuraValidationError, match="tenant ID"):
-        api.client.instances.list("bad")
+        api.client.instances.list(tenant_id="bad")
     api.assert_no_request()
 
 

@@ -31,6 +31,7 @@ You need an Aura API client ID and secret. See
 - [Logging](#logging)
 - [Custom transports and testing](#custom-transports-and-testing)
 - [Coming from the Go SDK](#coming-from-the-go-sdk)
+- [Versioning](#versioning)
 - [Development](#development)
 
 ## Installation
@@ -62,10 +63,11 @@ variables:
 
 ```python
 client = aura.AuraClient.from_env()
+client = aura.AuraClient.from_env(timeout=30, max_retries=5)  # any other option, type-checked
 ```
 
 Using the client as a context manager (or calling `client.close()`) releases its pooled
-connections.
+connections. A closed client raises `AuraClientClosedError` if you use it again.
 
 ## Configuration
 
@@ -78,7 +80,7 @@ client = aura.AuraClient(
     client_id="...",
     client_secret="...",
     timeout=60,  # seconds per call (default 120)
-    max_retries=5,  # network-failure retries (default 3)
+    max_retries=5,  # retries after a network failure or a 429/502/503/504 (default 3)
     max_response_size=20 * 1024 * 1024,  # bytes (default 10 MB)
     base_url="https://api.staging.neo4j.io",
     user_agent="my-app/1.0",  # default "aura-python-sdk/<version>"
@@ -105,10 +107,37 @@ client = aura.AuraClient(
 `timeout` is one deadline for the whole call, covering the OAuth token fetch, every retry and
 every backoff. This matches the per-call `context.WithTimeout` in the Go SDK.
 
-Only network failures are retried, with backoff from 1 s doubling to 5 s. A response with an HTTP
-status, including 429 and 5xx, is never retried. If a request might already have reached the
-server (a read timeout or a dropped connection), only idempotent methods (`GET`, `PUT`, `DELETE`)
-are retried. That means a `create` or `pause` is never sent twice.
+To change `timeout` or `max_retries` for some calls only, use `with_options()`. It returns a
+copy of the client that shares its connections and OAuth token, so it's cheap to call each time:
+
+```python
+instance = client.with_options(timeout=5).instances.get("2f49c2b3")
+
+patient = client.with_options(timeout=600, max_retries=10)
+patient.instances.list()
+```
+
+Closing a copy doesn't close the connections. Closing the original client closes its copies
+too.
+
+Retries use backoff from 1 s doubling to 5 s, and stop at `max_retries` or when the next wait
+would pass the deadline. Two things are retried:
+
+- **Network failures.** If the request might already have reached the server (a read timeout or
+  a dropped connection), only idempotent methods (`GET`, `PUT`, `DELETE`) are retried, so a
+  `create` or `pause` is never sent twice. A failure before the request was sent (DNS, connect)
+  is retried for every method.
+- **429, 502, 503 and 504 responses, for idempotent methods only.** The client waits for the
+  server's `Retry-After` when it sends one. If that wait would pass the deadline, it raises
+  straight away, and `RateLimitError.retry_after` tells you how long the server asked for.
+
+Any other response, including a 500, raises its error without a retry. The Go SDK never retries
+a response; this follows other Python SDKs, such as stripe and openai, instead.
+
+If the API rejects the cached OAuth token with a 401 (for example because it was revoked), the
+client fetches a new token and sends the request once more. The API rejected the first attempt
+without acting on it, so this is safe for every method. A second 401 raises
+`AuthenticationError`.
 
 ## Async
 
@@ -132,15 +161,14 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-Use `async with` or `await client.aclose()` to release connections. `prometheus.get_metric_value`
-does no I/O, so it is a plain method on both clients. A custom transport for the async client
-implements `AsyncHttpTransport` (`async send()` and `async aclose()`).
+Use `async with` or `await client.aclose()` to release connections. A custom transport for the
+async client implements `AsyncHttpTransport` (`async send()` and `async aclose()`).
 
 ## Tenants
 
 ```python
-for tenant in client.tenants.list():
-    print(tenant.id, tenant.name)
+for summary in client.tenants.list():
+    print(summary.id, summary.name)
 
 tenant = client.tenants.get("6981ace7-efe8-4f5c-b7c5-267b5162ce91")
 for config in tenant.instance_configurations:
@@ -173,23 +201,38 @@ created = client.instances.create(
 print(created.id, created.username, created.password)  # the password is shown only once
 ```
 
-Creation is asynchronous: poll `get()` until the status is `running`. See
+Creation is asynchronous. `wait_for_status()` polls `get()` until the instance reaches a status
+(`running` by default), and raises `OperationFailedError` if loading fails or `WaitTimeoutError`
+after `timeout` (15 minutes by default). See
 [examples/create_delete_instance.py](examples/create_delete_instance.py).
+
+```python
+created = client.instances.create(config)
+instance = client.instances.wait_for_status(created.id)
+client.instances.pause(instance.id)
+client.instances.wait_for_status(instance.id, status=aura.InstanceStatus.PAUSED)
+```
+
+Use it after `create`, `pause` and `resume`, which each end in a status the instance wasn't
+already in. `update`, `upgrade`, overwrites and restores start and end in `running`, so the first
+poll may still see the old status and return at once; `wait_for_status()` can't tell you when
+those have finished.
 
 | Method | What it does |
 | --- | --- |
-| `list(tenant_id=None)` | Summaries of every instance, optionally in one tenant. |
+| `list(*, tenant_id=None)` | Summaries of every instance, optionally in one tenant. |
 | `get(instance_id)` | Full details. |
 | `create(config)` | Starts creating an instance. Returns the initial credentials. |
-| `create_from_instance(source_instance_id, config)` | Clones another instance's current data. |
-| `create_from_snapshot(source_instance_id, source_snapshot_id, config)` | Creates from an exportable snapshot. |
+| `create_from_instance(config, *, source_instance_id)` | Clones another instance's current data. |
+| `create_from_snapshot(config, *, source_instance_id, source_snapshot_id)` | Creates from an exportable snapshot. |
 | `update(instance_id, *, name, memory, storage, vector_optimized, graph_analytics_plugin, cdc_enrichment_mode, secondaries_count)` | Changes only the fields you pass. |
 | `pause(instance_id)` / `resume(instance_id)` | |
 | `delete(instance_id)` | Cannot be undone. |
-| `overwrite_from_instance(instance_id, source_instance_id)` | Replaces the data with another instance's. |
-| `overwrite_from_snapshot(instance_id, source_snapshot_id)` | Replaces the data with a snapshot. |
+| `overwrite_from_instance(instance_id, *, source_instance_id)` | Replaces the data with another instance's. |
+| `overwrite_from_snapshot(instance_id, *, source_snapshot_id)` | Replaces the data with a snapshot. |
 | `estimate_size(*, node_count, relationship_count, instance_type, algorithm_categories)` | Sizing for AuraDS instances. |
 | `upgrade(instance_id, *, memory, storage)` | Professional to Business Critical. Pass both sizes, or neither. |
+| `wait_for_status(instance_id, *, status=RUNNING, timeout=900, interval=10)` | Polls until the instance has `status`. |
 
 `CreatedInstance.password` is left out of `repr()`, so logging the object doesn't expose it.
 
@@ -199,12 +242,15 @@ Creation is asynchronous: poll `get()` until the status is `running`. See
 import datetime
 
 snapshots = client.snapshots.list("2f49c2b3")  # today
-snapshots = client.snapshots.list("2f49c2b3", datetime.date(2026, 9, 1))
+snapshots = client.snapshots.list("2f49c2b3", date=datetime.date(2026, 9, 1))
 
 started = client.snapshots.create("2f49c2b3")
-snapshot = client.snapshots.get("2f49c2b3", started.snapshot_id)
+snapshot = client.snapshots.wait_for_completion("2f49c2b3", started.snapshot_id)
 client.snapshots.restore("2f49c2b3", snapshot.snapshot_id)
 ```
+
+`wait_for_completion()` polls until the snapshot is `Completed`, and raises
+`OperationFailedError` if it fails or is cancelled.
 
 ## Customer-managed keys
 
@@ -239,6 +285,7 @@ session = client.graph_analytics.create(
         region="europe-west1",
     )
 )
+session = client.graph_analytics.wait_until_ready(session.id)
 sessions = client.graph_analytics.list(tenant_id=session.tenant_id)
 client.graph_analytics.delete(session.id)
 ```
@@ -252,18 +299,19 @@ Get a metrics endpoint from `tenants.get_metrics_integration()` or from an insta
 ```python
 instance = client.instances.get("2f49c2b3")
 url = instance.metrics_integration_url
+if url is None:
+    raise SystemExit("metrics are not enabled for this instance")
 
 metrics = client.prometheus.fetch_raw_metrics(url)
-cpu = client.prometheus.get_metric_value(
-    metrics, "neo4j_aura_cpu_usage", {"instance_mode": "PRIMARY"}
-)
+cpu = metrics.value("neo4j_aura_cpu_usage", instance_mode="PRIMARY")
 
 health = client.prometheus.get_instance_health(instance.id, url)
 print(health.overall_status, health.issues, health.recommendations)
 ```
 
-`get_metric_value` averages every matching sample, and raises `MetricNotFoundError` if nothing
-matches. `get_instance_health` uses the Go SDK's metrics and thresholds. A metric the endpoint
+`metrics.value()` averages every sample with the given label values, and raises
+`MetricNotFoundError` if nothing matches. `client.prometheus.get_metric_value(metrics, name,
+labels)` does the same, for code ported from the Go SDK. `get_instance_health` uses the Go SDK's metrics and thresholds. A metric the endpoint
 doesn't report comes back as `None`, not `0`.
 
 ## Error handling
@@ -274,9 +322,12 @@ Every exception derives from `AuraError`:
 AuraError
 ├── AuraConfigurationError   (ValueError)  bad client options
 ├── AuraValidationError      (ValueError)  bad arguments; nothing was sent
-├── AuraConnectionError                    network failure after retries
-│   └── AuraTimeoutError
+├── AuraConnectionError   (ConnectionError) network failure after retries
+│   └── AuraTimeoutError  (TimeoutError)
+├── AuraClientClosedError (RuntimeError)   the client was used after close()
 ├── AuraResponseError                      oversized or malformed response
+├── OperationFailedError                   a wait_* helper saw the operation fail
+├── WaitTimeoutError     (TimeoutError)    a wait_* helper gave up; .resource is the last state
 ├── MetricNotFoundError      (LookupError)
 └── AuraAPIError                           non-2xx response
     ├── BadRequestError         400
@@ -298,6 +349,10 @@ except aura.AuraAPIError as err:
     for detail in err.details:
         print(detail.reason, detail.field, detail.message)
 ```
+
+The standard-library base classes in brackets mean generic handlers work too: for example,
+`except TimeoutError` in a retry library catches `AuraTimeoutError`. Every SDK exception can be
+pickled, so it survives `multiprocessing` and `concurrent.futures.ProcessPoolExecutor`.
 
 `AuraAPIError` also provides the Go SDK's helpers: `is_not_found`, `is_unauthorized`,
 `is_bad_request`, `has_multiple_errors` and `all_errors()`.
@@ -343,6 +398,10 @@ For a network failure, a transport should raise `AuraConnectionError` or `AuraTi
 `request_sent=False` only when the server certainly never received the request, because that
 decides whether a `POST` is retried.
 
+`repr(request)` is safe to log: it replaces the `Authorization` value with `***` and shows only
+the body's length. `request.headers` still holds the real values, which the transport needs to
+send.
+
 ## Coming from the Go SDK
 
 | Go | Python |
@@ -351,12 +410,14 @@ decides whether a `POST` is retried.
 | `defer client.Close()` | `with aura.AuraClient(...) as client:` |
 | goroutines with a shared client | `AsyncAuraClient` with `asyncio.gather` |
 | `client.Instances.List(ctx)` returning `resp.Data` | `client.instances.list()` returns the list |
-| `aura.IsNotFound(err)` | `except aura.NotFoundError:` |
+| `aura.IsNotFound(err)`, `IsUnauthorized`, `IsBadRequest` | `except aura.NotFoundError:` (or `err.is_not_found`, `err.is_unauthorized`, `err.is_bad_request` on any `AuraAPIError`) |
+| `apiErr.HasMultipleErrors()` / `AllErrors()` | `err.has_multiple_errors` / `err.all_errors()` |
 | `aura.WithHTTPClient(c)` | `transport=` |
 | `aura.WithInsecureBaseURL(u)` | `base_url=u, allow_insecure_base_url=True` |
 | `client.Tenants.GetMetrics` | `client.tenants.get_metrics_integration` |
 | `client.GraphAnalytics.Estimate` | `client.graph_analytics.estimate_size` |
 | `SnapshotDate` / `aura.Today()` | `datetime.date` / omit it for today |
+| `PrometheusHealthMetrics.Query.AvgLatencyMs` (the q50 median) | `InstanceHealth.query.median_latency_ms` |
 
 Python additions: sizing and upgrade for instances; get, create and delete for customer-managed
 keys; list filters; and the full set of `update` fields. The design notes are in
@@ -370,6 +431,21 @@ keys; list filters; and the full set of `update` fields. The design notes are in
 ```sh
 uv run python examples/list_instances.py
 ```
+
+## Versioning
+
+**What's public:** the names exported from `aura_python_sdk`, `aura_python_sdk.models` and
+`aura_python_sdk.services`. Anything whose module or name starts with an underscore, such as
+`aura_python_sdk._internal`, is private and can change in any release.
+
+**Stability:** the SDK follows [Semantic Versioning](https://semver.org/) from 1.0.0. Until
+then, a 0.x minor release may make breaking changes. Each one is marked **Breaking** in
+[CHANGELOG.md](CHANGELOG.md).
+
+**Deprecation:** from 1.0.0, a public name is removed or renamed only after at least one minor
+release in which using it raises a `DeprecationWarning`.
+
+The SDK targets version 1 of the Aura API.
 
 ## Development
 

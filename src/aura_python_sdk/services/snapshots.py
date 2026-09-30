@@ -9,8 +9,9 @@ from aura_python_sdk import _validation as validate
 from aura_python_sdk._errors import AuraValidationError
 from aura_python_sdk._internal._call import Call, many, one
 from aura_python_sdk._internal._request import build_path
+from aura_python_sdk._internal._wait import DEFAULT_WAIT_INTERVAL, DEFAULT_WAIT_TIMEOUT, Target
 from aura_python_sdk.models.instances import Instance
-from aura_python_sdk.models.snapshots import CreatedSnapshot, Snapshot
+from aura_python_sdk.models.snapshots import CreatedSnapshot, Snapshot, SnapshotStatus
 from aura_python_sdk.services._base import AsyncService, Service
 
 # --- Operations (validation, request and parsing; no I/O) ---
@@ -67,33 +68,91 @@ def _restore(instance_id: str, snapshot_id: str) -> Call[Instance]:
     )
 
 
+def _completion_target(instance_id: str, snapshot_id: str) -> Target[Snapshot]:
+    instance_id = validate.instance_id(instance_id)
+    snapshot_id = validate.snapshot_id(snapshot_id)
+    return Target(
+        describe=f"snapshot {snapshot_id} to complete",
+        status=lambda snapshot: snapshot.status,
+        done=SnapshotStatus.COMPLETED,
+        failed={SnapshotStatus.FAILED, SnapshotStatus.CANCELLED},
+    )
+
+
 # --- Services ---
 
 
 class SnapshotService(Service):
-    """Instance snapshots."""
+    """Instance snapshots.
 
-    def list(self, instance_id: str, date: dt.date | None = None) -> builtins.list[Snapshot]:
-        """Snapshots of an instance taken on ``date``. The API defaults to today."""
+    Each method lists the errors specific to it. The errors any call can raise are listed on
+    :class:`~aura_python_sdk.AuraClient`.
+    """
+
+    def list(self, instance_id: str, *, date: dt.date | None = None) -> builtins.list[Snapshot]:
+        """Snapshots of an instance taken on ``date``. The API defaults to today.
+
+        Raises:
+            AuraValidationError: ``instance_id`` is invalid, or ``date`` isn't a ``datetime.date``;
+                nothing was sent.
+            NotFoundError: The instance doesn't exist.
+        """
         return self._run(_list(instance_id, date))
 
     def get(self, instance_id: str, snapshot_id: str) -> Snapshot:
-        """Details of one snapshot."""
+        """Details of one snapshot.
+
+        Raises:
+            AuraValidationError: An ID is invalid; nothing was sent.
+            NotFoundError: The instance or the snapshot doesn't exist.
+        """
         return self._run(_get(instance_id, snapshot_id))
 
     def create(self, instance_id: str) -> CreatedSnapshot:
-        """Start an on-demand snapshot."""
+        """Start an on-demand snapshot.
+
+        Raises:
+            AuraValidationError: ``instance_id`` is invalid; nothing was sent.
+            NotFoundError: The instance doesn't exist.
+        """
         return self._run(_create(instance_id))
 
     def restore(self, instance_id: str, snapshot_id: str) -> Instance:
-        """Restore an instance from one of its own snapshots, replacing its current data."""
+        """Restore an instance from one of its own snapshots, replacing its current data.
+
+        Raises:
+            AuraValidationError: An ID is invalid; nothing was sent.
+            NotFoundError: The instance or the snapshot doesn't exist.
+        """
         return self._run(_restore(instance_id, snapshot_id))
+
+    def wait_for_completion(
+        self,
+        instance_id: str,
+        snapshot_id: str,
+        *,
+        timeout: float = DEFAULT_WAIT_TIMEOUT,
+        interval: float = DEFAULT_WAIT_INTERVAL,
+    ) -> Snapshot:
+        """Poll :meth:`get` until the snapshot is ``Completed``, and return it.
+
+        ``timeout`` and ``interval`` are in seconds (15 minutes and 10 seconds by default).
+
+        Raises:
+            OperationFailedError: The snapshot ``Failed`` or was ``Cancelled``.
+            WaitTimeoutError: ``timeout`` passed first. The snapshot may still complete.
+            NotFoundError: It still wasn't found after a minute.
+        """
+        target = _completion_target(instance_id, snapshot_id)
+        return self._wait(lambda: self.get(instance_id, snapshot_id), target, timeout, interval)
 
 
 class AsyncSnapshotService(AsyncService):
     """Async version of :class:`SnapshotService`, with the same arguments and behaviour."""
 
-    async def list(self, instance_id: str, date: dt.date | None = None) -> builtins.list[Snapshot]:
+    async def list(
+        self, instance_id: str, *, date: dt.date | None = None
+    ) -> builtins.list[Snapshot]:
         """See :meth:`SnapshotService.list`."""
         return await self._run(_list(instance_id, date))
 
@@ -108,3 +167,17 @@ class AsyncSnapshotService(AsyncService):
     async def restore(self, instance_id: str, snapshot_id: str) -> Instance:
         """See :meth:`SnapshotService.restore`."""
         return await self._run(_restore(instance_id, snapshot_id))
+
+    async def wait_for_completion(
+        self,
+        instance_id: str,
+        snapshot_id: str,
+        *,
+        timeout: float = DEFAULT_WAIT_TIMEOUT,
+        interval: float = DEFAULT_WAIT_INTERVAL,
+    ) -> Snapshot:
+        """See :meth:`SnapshotService.wait_for_completion`."""
+        target = _completion_target(instance_id, snapshot_id)
+        return await self._wait(
+            lambda: self.get(instance_id, snapshot_id), target, timeout, interval
+        )

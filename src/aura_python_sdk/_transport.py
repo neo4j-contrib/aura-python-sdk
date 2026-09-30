@@ -12,6 +12,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
+# Header values that HttpRequest's repr hides (compared case-insensitively).
+_SECRET_HEADERS = frozenset({"authorization", "proxy-authorization"})
+
 
 @dataclass(frozen=True, slots=True)
 class HttpRequest:
@@ -20,6 +23,8 @@ class HttpRequest:
     ``timeout`` is in seconds. A transport must not read more than ``max_response_size`` bytes
     of the response body. If the body is larger, it raises
     :class:`~aura_python_sdk.AuraResponseError`.
+
+    ``repr()`` hides the ``Authorization`` header value and the body, so it is safe to log.
     """
 
     method: str
@@ -28,6 +33,18 @@ class HttpRequest:
     body: bytes | None
     timeout: float
     max_response_size: int
+
+    def __repr__(self) -> str:
+        # Transports often log the request, so keep credentials out of the repr.
+        headers = {
+            name: "***" if name.lower() in _SECRET_HEADERS else value
+            for name, value in self.headers.items()
+        }
+        body = None if self.body is None else f"<{len(self.body)} bytes>"
+        return (
+            f"HttpRequest(method={self.method!r}, url={self.url!r}, headers={headers!r}, "
+            f"body={body}, timeout={self.timeout!r}, max_response_size={self.max_response_size!r})"
+        )
 
 
 @dataclass(frozen=True, slots=True)

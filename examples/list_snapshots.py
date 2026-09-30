@@ -23,7 +23,7 @@ def main() -> int:
 
     try:
         with aura.AuraClient.from_env() as client:
-            snapshots = client.snapshots.list(instance_id, day)
+            snapshots = client.snapshots.list(instance_id, date=day)
     except aura.AuraError as err:
         print(f"error: {err}", file=sys.stderr)
         return 1

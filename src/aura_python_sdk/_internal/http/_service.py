@@ -11,21 +11,32 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Mapping
 
-from aura_python_sdk._errors import AuraConnectionError, AuraResponseError, AuraTimeoutError
+from aura_python_sdk._errors import (
+    AuraConnectionError,
+    AuraResponseError,
+    AuraTimeoutError,
+    parse_retry_after,
+)
 from aura_python_sdk._transport import AsyncHttpTransport, HttpRequest, HttpResponse, HttpTransport
 
 # Methods that are safe to repeat when the server may already have received the request.
 _IDEMPOTENT_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "PUT", "DELETE"})
+
+# Responses that mean "try again shortly": rate limited, or a gateway or service unavailable.
+# Retried only for idempotent methods. A plain 500 may mean the request was acted on, so it isn't.
+_RETRYABLE_STATUSES = frozenset({429, 502, 503, 504})
 
 RETRY_WAIT_MIN = 1.0
 RETRY_WAIT_MAX = 5.0
 
 
 class _RetryPolicy:
-    """Network failures only: exponential backoff (1 s doubling to 5 s), never past the deadline.
+    """Retries with exponential backoff (1 s doubling to 5 s), never past the deadline.
 
-    As in the Go SDK, a response with any HTTP status is final. If the request may have reached
-    the server, only idempotent methods are retried, so a ``POST /instances`` is never sent twice.
+    Network failures are retried, but if the request may have reached the server, only for
+    idempotent methods, so a ``POST /instances`` is never sent twice. A 429, 502, 503 or 504 is
+    retried for idempotent methods only, waiting ``Retry-After`` when the server sends it. Any
+    other response is final. Both kinds of retry share ``max_retries``.
     """
 
     def __init__(
@@ -66,13 +77,40 @@ class _RetryPolicy:
         self, method: str, url: str, exc: AuraConnectionError, attempt: int, deadline: float
     ) -> float | None:
         """Seconds to wait before retrying, or None to give up and re-raise."""
-        wait = min(RETRY_WAIT_MAX, RETRY_WAIT_MIN * 2.0**attempt)
+        wait = _backoff(attempt)
         retryable = not exc.request_sent or method.upper() in _IDEMPOTENT_METHODS
         if attempt >= self.max_retries or not retryable or self.clock() + wait >= deadline:
             return None
         self.logger.debug(
             "retrying HTTP request after network error",
             extra={"method": method, "url": url, "attempt": attempt + 1, "error": str(exc)},
+        )
+        return wait
+
+    def status_retry_wait(
+        self, method: str, url: str, response: HttpResponse, attempt: int, deadline: float
+    ) -> float | None:
+        """Seconds to wait before retrying this response, or None to return it."""
+        if (
+            response.status_code not in _RETRYABLE_STATUSES
+            or method.upper() not in _IDEMPOTENT_METHODS
+            or attempt >= self.max_retries
+        ):
+            return None
+        retry_after = parse_retry_after(response.headers.get("retry-after"))
+        wait = _backoff(attempt) if retry_after is None else retry_after
+        if self.clock() + wait >= deadline:
+            # Waiting would pass the deadline; the caller gets the error (with retry_after).
+            return None
+        self.logger.debug(
+            "retrying HTTP request after retryable status",
+            extra={
+                "method": method,
+                "url": url,
+                "attempt": attempt + 1,
+                "status": response.status_code,
+                "wait": wait,
+            },
         )
         return wait
 
@@ -86,6 +124,10 @@ class _RetryPolicy:
             extra={"method": method, "url": url, "status": response.status_code},
         )
         return response
+
+
+def _backoff(attempt: int) -> float:
+    return min(RETRY_WAIT_MAX, RETRY_WAIT_MIN * 2.0**attempt)
 
 
 class HttpService:
@@ -132,7 +174,12 @@ class HttpService:
                 self._sleep(wait)
                 attempt += 1
                 continue
-            return self._policy.check_response(method, url, response)
+            response = self._policy.check_response(method, url, response)
+            wait = self._policy.status_retry_wait(method, url, response, attempt, deadline)
+            if wait is None:
+                return response
+            self._sleep(wait)
+            attempt += 1
 
 
 class AsyncHttpService:
@@ -179,4 +226,9 @@ class AsyncHttpService:
                 await self._sleep(wait)
                 attempt += 1
                 continue
-            return self._policy.check_response(method, url, response)
+            response = self._policy.check_response(method, url, response)
+            wait = self._policy.status_retry_wait(method, url, response, attempt, deadline)
+            if wait is None:
+                return response
+            await self._sleep(wait)
+            attempt += 1

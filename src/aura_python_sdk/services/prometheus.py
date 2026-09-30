@@ -72,14 +72,7 @@ def metric_value(
     """The mean value of ``name`` across samples matching ``label_filters`` (Go semantics)."""
     if not isinstance(metrics, PrometheusMetrics):
         raise AuraValidationError("metrics must be a PrometheusMetrics")
-    samples = metrics.metrics.get(name)
-    if not samples:
-        raise MetricNotFoundError(f"metric {name} not found")
-    filters = dict(label_filters or {})
-    matching = [s for s in samples if all(s.labels.get(k) == v for k, v in filters.items())]
-    if not matching:
-        raise MetricNotFoundError(f"no matching metrics found for {name} with filters {filters}")
-    return sum(s.value for s in matching) / len(matching)
+    return metrics.value(name, **dict(label_filters or {}))
 
 
 def build_health(
@@ -108,7 +101,7 @@ def build_health(
 
     query = QueryMetrics(
         query_execution_total=value("neo4j_db_query_execution_success_total"),
-        avg_latency_ms=value("neo4j_db_query_execution_internal_latency_q50"),
+        median_latency_ms=value("neo4j_db_query_execution_internal_latency_q50"),
     )
 
     idle = value("neo4j_dbms_bolt_connections_idle")
@@ -151,6 +144,9 @@ class PrometheusService(Service):
 
     Get an endpoint from ``client.tenants.get_metrics_integration(tenant_id).endpoint`` or
     ``client.instances.get(instance_id).metrics_integration_url``.
+
+    Each method lists the errors specific to it. The errors any call can raise are listed on
+    :class:`~aura_python_sdk.AuraClient`.
     """
 
     def __init__(
@@ -160,7 +156,13 @@ class PrometheusService(Service):
         self._allow_untrusted_urls = allow_untrusted_urls
 
     def fetch_raw_metrics(self, prometheus_url: str) -> PrometheusMetrics:
-        """Fetch and parse every metric from a metrics endpoint."""
+        """Fetch and parse every metric from a metrics endpoint.
+
+        Raises:
+            AuraValidationError: ``prometheus_url`` isn't an ``https://*.neo4j.io`` URL; nothing was
+                sent.
+            AuraResponseError: The response isn't valid Prometheus text.
+        """
         return self._run(_fetch(prometheus_url, allow_untrusted=self._allow_untrusted_urls))
 
     def get_metric_value(
@@ -171,7 +173,11 @@ class PrometheusService(Service):
     ) -> float:
         """The mean value of ``name`` across every sample whose labels match ``label_filters``.
 
-        Raises :class:`MetricNotFoundError` if nothing matches.
+        The same as ``metrics.value(name, **label_filters)``, kept for the Go SDK's
+        ``GetMetricValue``.
+
+        Raises:
+            MetricNotFoundError: No sample of ``name`` has these labels.
         """
         return metric_value(metrics, name, label_filters)
 
@@ -179,6 +185,10 @@ class PrometheusService(Service):
         """Summarise an instance's CPU, memory, query, connection and page cache metrics.
 
         Uses the same metrics, thresholds and status logic as the Go SDK.
+
+        Raises:
+            AuraValidationError: ``instance_id`` or ``prometheus_url`` is invalid; nothing was sent.
+            AuraResponseError: The response isn't valid Prometheus text.
         """
         instance_id = validate.instance_id(instance_id)
         call = _fetch(prometheus_url, allow_untrusted=self._allow_untrusted_urls)

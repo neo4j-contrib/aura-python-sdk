@@ -134,6 +134,29 @@ def test_get_metric_value_not_found(api: Api) -> None:
     assert issubclass(MetricNotFoundError, LookupError)
 
 
+def test_metrics_value_takes_labels_as_keywords() -> None:
+    metrics = _metrics(
+        cpu=[
+            ({"zone": "a", "mode": "PRIMARY"}, 1.0),
+            ({"zone": "b", "mode": "PRIMARY"}, 3.0),
+            ({"zone": "a", "mode": "SECONDARY"}, 5.0),
+        ]
+    )
+    assert metrics.value("cpu") == 3.0
+    assert metrics.value("cpu", mode="PRIMARY") == 2.0
+    assert metrics.value("cpu", zone="a", mode="SECONDARY") == 5.0
+    with pytest.raises(MetricNotFoundError, match="no matching metrics"):
+        metrics.value("cpu", zone="z")
+    with pytest.raises(MetricNotFoundError, match="metric memory not found"):
+        metrics.value("memory")
+
+
+def test_metrics_value_allows_a_label_called_name() -> None:
+    # The metric name is positional-only, so a "name" label doesn't clash with it.
+    metrics = _metrics(up=[({"name": "db1"}, 1.0), ({"name": "db2"}, 0.0)])
+    assert metrics.value("up", name="db2") == 0.0
+
+
 def test_get_metric_value_requires_metrics(api: Api) -> None:
     with pytest.raises(AuraValidationError, match="PrometheusMetrics"):
         api.client.prometheus.get_metric_value({"cpu": []}, "cpu")  # type: ignore[arg-type]
@@ -148,7 +171,7 @@ def test_get_instance_health_healthy(api: Api) -> None:
     assert health.resources.cpu_usage_percent == pytest.approx(25.0)  # mean 1.0 of 4 cores
     assert health.resources.memory_usage_percent == pytest.approx(42.0)
     assert health.query.query_execution_total == 1200
-    assert health.query.avg_latency_ms == 3.5
+    assert health.query.median_latency_ms == 3.5
     assert health.connections == ConnectionMetrics(
         active_connections=15, max_connections=100, usage_percent=15.0
     )

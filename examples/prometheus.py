@@ -35,7 +35,7 @@ def main() -> int:
                 print(f"  - {name}")
 
             try:
-                nodes = client.prometheus.get_metric_value(metrics, "neo4j_database_count_node")
+                nodes = metrics.value("neo4j_database_count_node")
                 print(f"\nNodes: {nodes:.0f}")
             except aura.MetricNotFoundError:
                 print("\nNode count is not reported")

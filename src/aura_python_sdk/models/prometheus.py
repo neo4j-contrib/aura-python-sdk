@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
+from aura_python_sdk._errors import MetricNotFoundError
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class PrometheusMetric:
@@ -28,8 +30,28 @@ class PrometheusMetrics:
 
     metrics: Mapping[str, tuple[PrometheusMetric, ...]] = field(default_factory=dict)
 
+    def value(self, name: str, /, **labels: str) -> float:
+        """The mean value of ``name`` across every sample with these label values.
+
+        ::
+
+            metrics.value("neo4j_aura_cpu_usage", instance_mode="PRIMARY")
+
+        Raises:
+            MetricNotFoundError: No sample of ``name`` has these labels.
+        """
+        samples = self.metrics.get(name)
+        if not samples:
+            raise MetricNotFoundError(f"metric {name} not found")
+        matching = [s for s in samples if all(s.labels.get(k) == v for k, v in labels.items())]
+        if not matching:
+            raise MetricNotFoundError(f"no matching metrics found for {name} with filters {labels}")
+        return sum(s.value for s in matching) / len(matching)
+
 
 class HealthStatus(StrEnum):
+    """The overall health in an :class:`InstanceHealth`: healthy, warning or critical."""
+
     HEALTHY = "healthy"
     WARNING = "warning"
     CRITICAL = "critical"
@@ -37,19 +59,25 @@ class HealthStatus(StrEnum):
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ResourceMetrics:
+    """CPU and heap memory use, as percentages of the instance's limits."""
+
     cpu_usage_percent: float | None = None
     memory_usage_percent: float | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class QueryMetrics:
+    """Query counts and latency, in milliseconds."""
+
     query_execution_total: float | None = None
-    # The median (q50) internal query latency, which the Go SDK labels as the average.
-    avg_latency_ms: float | None = None
+    # The median (q50) internal query latency. The Go SDK calls this AvgLatencyMs.
+    median_latency_ms: float | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ConnectionMetrics:
+    """Bolt connections in use, against the instance's limit."""
+
     active_connections: int | None = None
     max_connections: int | None = None
     usage_percent: float | None = None
@@ -57,6 +85,8 @@ class ConnectionMetrics:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class StorageMetrics:
+    """Page cache effectiveness: the hit rate as a percentage."""
+
     page_cache_hit_rate: float | None = None
 
 

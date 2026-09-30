@@ -10,11 +10,13 @@ from aura_python_sdk._errors import AuraValidationError
 from aura_python_sdk._internal._call import Call, many, one
 from aura_python_sdk._internal._request import build_path
 from aura_python_sdk._internal._serde import to_json
+from aura_python_sdk._internal._wait import DEFAULT_WAIT_INTERVAL, DEFAULT_WAIT_TIMEOUT, Target
 from aura_python_sdk.models.graph_analytics import (
     DeletedGDSSession,
     GDSSession,
     GDSSessionConfig,
     GDSSessionSizeEstimate,
+    GDSSessionStatus,
 )
 from aura_python_sdk.services._base import (
     INSTANCE_ID_PARAM,
@@ -124,11 +126,25 @@ def _delete(session_id: str) -> Call[DeletedGDSSession]:
     )
 
 
+def _ready_target(session_id: str) -> Target[GDSSession]:
+    session_id = validate.session_id(session_id)
+    return Target(
+        describe=f"GDS session {session_id} to be ready",
+        status=lambda session: session.status,
+        done=GDSSessionStatus.READY,
+        failed={GDSSessionStatus.FAILED, GDSSessionStatus.EXPIRED},
+    )
+
+
 # --- Services ---
 
 
 class GDSSessionService(Service):
-    """Graph Analytics (GDS) sessions."""
+    """Graph Analytics (GDS) sessions.
+
+    Each method lists the errors specific to it. The errors any call can raise are listed on
+    :class:`~aura_python_sdk.AuraClient`.
+    """
 
     def list(
         self,
@@ -137,7 +153,11 @@ class GDSSessionService(Service):
         instance_id: str | None = None,
         organization_id: str | None = None,
     ) -> builtins.list[GDSSession]:
-        """Every session the credentials can access, optionally filtered."""
+        """Every session the credentials can access, optionally filtered.
+
+        Raises:
+            AuraValidationError: A filter is invalid; nothing was sent.
+        """
         return self._run(_list(tenant_id, instance_id, organization_id))
 
     def estimate_size(
@@ -150,7 +170,11 @@ class GDSSessionService(Service):
         relationship_property_count: int | None = None,
         algorithm_categories: Sequence[str] | None = None,
     ) -> GDSSessionSizeEstimate:
-        """Estimate the session size needed for a graph (Go: ``Estimate``)."""
+        """Estimate the session size needed for a graph (Go: ``Estimate``).
+
+        Raises:
+            AuraValidationError: An argument is invalid; nothing was sent.
+        """
         return self._run(
             _estimate_size(
                 node_count,
@@ -167,16 +191,48 @@ class GDSSessionService(Service):
 
         Attach it to an instance with ``instance_id`` and ``database_uuid``, or make a standalone
         session with ``cloud_provider`` and ``region``.
+
+        Raises:
+            AuraValidationError: A field of ``config`` is invalid; nothing was sent.
         """
         return self._run(_create(config))
 
     def get(self, session_id: str) -> GDSSession:
-        """Details of one session."""
+        """Details of one session.
+
+        Raises:
+            AuraValidationError: ``session_id`` is invalid; nothing was sent.
+            NotFoundError: The session doesn't exist.
+        """
         return self._run(_get(session_id))
 
     def delete(self, session_id: str) -> DeletedGDSSession:
-        """Delete a session."""
+        """Delete a session.
+
+        Raises:
+            AuraValidationError: ``session_id`` is invalid; nothing was sent.
+            NotFoundError: The session doesn't exist.
+        """
         return self._run(_delete(session_id))
+
+    def wait_until_ready(
+        self,
+        session_id: str,
+        *,
+        timeout: float = DEFAULT_WAIT_TIMEOUT,
+        interval: float = DEFAULT_WAIT_INTERVAL,
+    ) -> GDSSession:
+        """Poll :meth:`get` until the session is ``Ready``, and return it.
+
+        ``timeout`` and ``interval`` are in seconds (15 minutes and 10 seconds by default).
+
+        Raises:
+            OperationFailedError: The session ``Failed`` or ``Expired``.
+            WaitTimeoutError: ``timeout`` passed first. The session may still become ready.
+            NotFoundError: It still wasn't found after a minute.
+        """
+        target = _ready_target(session_id)
+        return self._wait(lambda: self.get(session_id), target, timeout, interval)
 
 
 class AsyncGDSSessionService(AsyncService):
@@ -225,3 +281,14 @@ class AsyncGDSSessionService(AsyncService):
     async def delete(self, session_id: str) -> DeletedGDSSession:
         """See :meth:`GDSSessionService.delete`."""
         return await self._run(_delete(session_id))
+
+    async def wait_until_ready(
+        self,
+        session_id: str,
+        *,
+        timeout: float = DEFAULT_WAIT_TIMEOUT,
+        interval: float = DEFAULT_WAIT_INTERVAL,
+    ) -> GDSSession:
+        """See :meth:`GDSSessionService.wait_until_ready`."""
+        target = _ready_target(session_id)
+        return await self._wait(lambda: self.get(session_id), target, timeout, interval)

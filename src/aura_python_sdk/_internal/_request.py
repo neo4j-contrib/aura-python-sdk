@@ -6,9 +6,14 @@ import json
 import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from http import HTTPStatus
 from urllib.parse import quote, urlencode
 
-from aura_python_sdk._errors import AuraResponseError, api_error_from_response
+from aura_python_sdk._errors import (
+    AuraClientClosedError,
+    AuraResponseError,
+    api_error_from_response,
+)
 from aura_python_sdk._internal._auth import AsyncTokenManager, TokenManager
 from aura_python_sdk._internal.http._service import AsyncHttpService, HttpService
 from aura_python_sdk._transport import HttpResponse
@@ -52,12 +57,18 @@ class _Requests:
         default_headers: Mapping[str, str],
         timeout: float,
         logger: logging.Logger,
+        is_closed: Callable[[], bool],
     ) -> None:
         self.endpoint_base = f"{base_url}/{api_version}"
         self.user_agent = user_agent
         self.default_headers = dict(default_headers)
         self.timeout = timeout
         self.logger = logger
+        self.is_closed = is_closed
+
+    def check_open(self) -> None:
+        if self.is_closed():
+            raise AuraClientClosedError("the client is closed; create a new client")
 
     def resolve_url(self, path: str, params: QueryParams | None) -> str:
         if path.startswith(("https://", "http://")):
@@ -84,8 +95,8 @@ class _Requests:
         self, method: str, url: str, response: HttpResponse, invalidate: Callable[[], None]
     ) -> ApiResponse:
         if not 200 <= response.status_code < 300:
-            if response.status_code == 401:
-                # The token may have been revoked; make the next call fetch a fresh one.
+            if response.status_code == HTTPStatus.UNAUTHORIZED:
+                # Even the fresh token was rejected; don't keep it for the next call.
                 invalidate()
             error = api_error_from_response(response.status_code, response.body, response.headers)
             self.logger.debug(
@@ -110,6 +121,7 @@ class RequestService:
         default_headers: Mapping[str, str],
         timeout: float,
         logger: logging.Logger,
+        is_closed: Callable[[], bool] = lambda: False,
     ) -> None:
         self._http = http
         self._auth = auth
@@ -120,6 +132,7 @@ class RequestService:
             default_headers=default_headers,
             timeout=timeout,
             logger=logger,
+            is_closed=is_closed,
         )
 
     def get(self, path: str, *, params: QueryParams | None = None) -> ApiResponse:
@@ -145,18 +158,26 @@ class RequestService:
         params: QueryParams | None = None,
         json_body: object = None,
     ) -> ApiResponse:
+        self._requests.check_open()
         # One deadline covers the token fetch, every attempt and every backoff, like the
         # context.WithTimeout that wraps each Go service method.
         deadline = self._http.clock() + self._requests.timeout
         url = self._requests.resolve_url(path, params)
+        body = self._requests.body(json_body)
+        response = self._send(method, url, body, deadline)
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
+            # The cached token may have been revoked or rotated. The server rejected the request
+            # without acting on it, so it is safe to send once more with a fresh token.
+            self._auth.invalidate()
+            response = self._send(method, url, body, deadline)
+        return self._requests.finish(method, url, response, self._auth.invalidate)
+
+    def _send(self, method: str, url: str, body: bytes | None, deadline: float) -> HttpResponse:
         headers = self._requests.headers(self._auth.authorization_header(deadline=deadline))
         self._requests.logger.debug(
             "making authenticated API request", extra={"method": method, "url": url}
         )
-        response = self._http.send(
-            method, url, headers, self._requests.body(json_body), deadline=deadline
-        )
-        return self._requests.finish(method, url, response, self._auth.invalidate)
+        return self._http.send(method, url, headers, body, deadline=deadline)
 
 
 class AsyncRequestService:
@@ -173,6 +194,7 @@ class AsyncRequestService:
         default_headers: Mapping[str, str],
         timeout: float,
         logger: logging.Logger,
+        is_closed: Callable[[], bool] = lambda: False,
     ) -> None:
         self._http = http
         self._auth = auth
@@ -183,6 +205,7 @@ class AsyncRequestService:
             default_headers=default_headers,
             timeout=timeout,
             logger=logger,
+            is_closed=is_closed,
         )
 
     async def request(
@@ -193,14 +216,23 @@ class AsyncRequestService:
         params: QueryParams | None = None,
         json_body: object = None,
     ) -> ApiResponse:
+        self._requests.check_open()
         deadline = self._http.clock() + self._requests.timeout
         url = self._requests.resolve_url(path, params)
+        body = self._requests.body(json_body)
+        response = await self._send(method, url, body, deadline)
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
+            # See RequestService.request: retry once with a fresh token.
+            self._auth.invalidate()
+            response = await self._send(method, url, body, deadline)
+        return self._requests.finish(method, url, response, self._auth.invalidate)
+
+    async def _send(
+        self, method: str, url: str, body: bytes | None, deadline: float
+    ) -> HttpResponse:
         authorization = await self._auth.authorization_header(deadline=deadline)
         headers = self._requests.headers(authorization)
         self._requests.logger.debug(
             "making authenticated API request", extra={"method": method, "url": url}
         )
-        response = await self._http.send(
-            method, url, headers, self._requests.body(json_body), deadline=deadline
-        )
-        return self._requests.finish(method, url, response, self._auth.invalidate)
+        return await self._http.send(method, url, headers, body, deadline=deadline)

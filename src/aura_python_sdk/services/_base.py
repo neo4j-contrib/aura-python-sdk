@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
+from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
 from aura_python_sdk._errors import AuraError
 from aura_python_sdk._internal._call import Call
 from aura_python_sdk._internal._request import AsyncRequestService, RequestService
+from aura_python_sdk._internal._wait import Target, async_wait, validate_wait, wait
 
 T = TypeVar("T")
 
@@ -31,6 +35,9 @@ class Service:
     def __init__(self, api: RequestService, logger: logging.Logger) -> None:
         self._api = api
         self._logger = logger
+        # Used by the wait_* helpers; tests replace them.
+        self._clock: Callable[[], float] = time.monotonic
+        self._sleep: Callable[[float], None] = time.sleep
 
     def _run(self, call: Call[T]) -> T:
         __tracebackhide__ = True  # pytest: leave this frame out of failure reports
@@ -47,6 +54,24 @@ class Service:
             self._logger.info(call.done, extra=dict(call.context))
         return result
 
+    def _wait(
+        self, fetch: Callable[[], T], target: Target[T], timeout: float, interval: float
+    ) -> T:
+        __tracebackhide__ = True  # pytest: leave this frame out of failure reports
+        timeout, interval = validate_wait(timeout, interval)
+        self._logger.debug("waiting for operation", extra={"target": target.describe})
+        try:
+            return wait(
+                fetch,
+                target,
+                timeout=timeout,
+                interval=interval,
+                clock=self._clock,
+                sleep=self._sleep,
+            )
+        except AuraError as exc:
+            raise _without_internal_frames(exc)  # noqa: B904
+
 
 class AsyncService:
     """Base for the async services on :class:`AsyncAuraClient`: awaits each operation's ``Call``."""
@@ -54,6 +79,9 @@ class AsyncService:
     def __init__(self, api: AsyncRequestService, logger: logging.Logger) -> None:
         self._api = api
         self._logger = logger
+        # Used by the wait_* helpers; tests replace them.
+        self._clock: Callable[[], float] = time.monotonic
+        self._sleep: Callable[[float], Awaitable[None]] = asyncio.sleep
 
     async def _run(self, call: Call[T]) -> T:
         __tracebackhide__ = True  # pytest: leave this frame out of failure reports
@@ -69,3 +97,25 @@ class AsyncService:
         if call.done:
             self._logger.info(call.done, extra=dict(call.context))
         return result
+
+    async def _wait(
+        self,
+        fetch: Callable[[], Awaitable[T]],
+        target: Target[T],
+        timeout: float,
+        interval: float,
+    ) -> T:
+        __tracebackhide__ = True  # pytest: leave this frame out of failure reports
+        timeout, interval = validate_wait(timeout, interval)
+        self._logger.debug("waiting for operation", extra={"target": target.describe})
+        try:
+            return await async_wait(
+                fetch,
+                target,
+                timeout=timeout,
+                interval=interval,
+                clock=self._clock,
+                sleep=self._sleep,
+            )
+        except AuraError as exc:
+            raise _without_internal_frames(exc)  # noqa: B904

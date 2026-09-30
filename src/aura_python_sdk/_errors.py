@@ -8,11 +8,13 @@ Every exception derives from :class:`AuraError`. Errors returned by the Aura API
 from __future__ import annotations
 
 import email.utils
+import functools
 import json
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from http import HTTPStatus
+from typing import Any
 
 
 class AuraError(Exception):
@@ -27,24 +29,61 @@ class AuraValidationError(AuraError, ValueError):
     """An argument failed client-side validation; no request was sent."""
 
 
-class AuraConnectionError(AuraError):
+class AuraConnectionError(AuraError, ConnectionError):
     """The request could not be completed because of a network failure.
 
     ``request_sent`` is False when the failure happened before the request reached the server
-    (for example DNS or connect errors), so retrying cannot duplicate the operation.
+    (for example DNS or connect errors), so retrying cannot duplicate the operation. Also a
+    :class:`ConnectionError`, so generic network error handling catches it.
     """
 
     def __init__(self, message: str, *, request_sent: bool) -> None:
         super().__init__(message)
         self.request_sent = request_sent
 
+    def __reduce__(self) -> tuple[Any, ...]:
+        # The keyword-only argument would otherwise be lost when pickling (multiprocessing).
+        return (functools.partial(type(self), str(self), request_sent=self.request_sent), ())
 
-class AuraTimeoutError(AuraConnectionError):
-    """The request did not complete within the configured timeout."""
+
+class AuraTimeoutError(AuraConnectionError, TimeoutError):
+    """The request did not complete within the configured timeout. Also a :class:`TimeoutError`."""
+
+
+class AuraClientClosedError(AuraError, RuntimeError):
+    """The client was used after ``close()`` or ``aclose()``. Create a new client instead."""
 
 
 class AuraResponseError(AuraError):
     """The API response could not be used: too large, not valid JSON, or an unexpected shape."""
+
+
+class OperationFailedError(AuraError):
+    """A ``wait_*`` helper saw the operation fail, for example status ``loading failed``.
+
+    ``resource`` is the last state fetched (an ``Instance``, ``Snapshot`` or ``GDSSession``).
+    """
+
+    def __init__(self, message: str, *, resource: object) -> None:
+        super().__init__(message)
+        self.resource = resource
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        return (functools.partial(type(self), str(self), resource=self.resource), ())
+
+
+class WaitTimeoutError(AuraError, TimeoutError):
+    """A ``wait_*`` helper gave up before the operation finished.
+
+    The operation may still be running. ``resource`` is the last state fetched.
+    """
+
+    def __init__(self, message: str, *, resource: object) -> None:
+        super().__init__(message)
+        self.resource = resource
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        return (functools.partial(type(self), str(self), resource=self.resource), ())
 
 
 class MetricNotFoundError(AuraError, LookupError):
@@ -77,6 +116,18 @@ class AuraAPIError(AuraError):
         self.request_id = request_id
         super().__init__(self._format())
 
+    def __reduce__(self) -> tuple[Any, ...]:
+        # Rebuild from the attributes, not the formatted message, so pickling round-trips.
+        return (functools.partial(type(self), **self._init_kwargs()), ())
+
+    def _init_kwargs(self) -> dict[str, Any]:
+        return {
+            "status_code": self.status_code,
+            "message": self.message,
+            "details": self.details,
+            "request_id": self.request_id,
+        }
+
     def _format(self) -> str:
         text = f"API error (status {self.status_code}): {self.message}"
         if self.details:
@@ -84,6 +135,8 @@ class AuraAPIError(AuraError):
             if len(self.details) > 1:
                 text += f" (and {len(self.details) - 1} more error(s))"
         return text
+
+    # Go SDK equivalents. In Python, prefer catching the subclass (``except NotFoundError``).
 
     def all_errors(self) -> list[str]:
         """The top-level message followed by every detail message."""
@@ -141,6 +194,9 @@ class RateLimitError(AuraAPIError):
         self.retry_after = retry_after
         super().__init__(status_code, message, details, request_id=request_id)
 
+    def _init_kwargs(self) -> dict[str, Any]:
+        return {**super()._init_kwargs(), "retry_after": self.retry_after}
+
 
 class ServerError(AuraAPIError):
     """HTTP 5xx."""
@@ -178,7 +234,7 @@ def api_error_from_response(
             message,
             details,
             request_id=request_id,
-            retry_after=_parse_retry_after(headers.get("retry-after")),
+            retry_after=parse_retry_after(headers.get("retry-after")),
         )
     if error_class is None:
         error_class = _STATUS_TO_ERROR.get(status_code)
@@ -232,7 +288,7 @@ def _optional_str(value: object) -> str | None:
     return value if isinstance(value, str) else None
 
 
-def _parse_retry_after(value: str | None) -> float | None:
+def parse_retry_after(value: str | None) -> float | None:
     """Retry-After is either delta-seconds or an HTTP date."""
     if not value:
         return None
@@ -256,7 +312,10 @@ for _public in (
     AuraValidationError,
     AuraConnectionError,
     AuraTimeoutError,
+    AuraClientClosedError,
     AuraResponseError,
+    OperationFailedError,
+    WaitTimeoutError,
     MetricNotFoundError,
     ErrorDetail,
     AuraAPIError,

@@ -124,3 +124,19 @@ def test_instance_connection_url_may_be_null_or_missing(payload: dict[str, objec
         "memory": "8GB",
     }
     assert from_json(models.Instance, {**base, **payload}).connection_url is None
+
+
+def test_instance_memory_may_be_missing() -> None:
+    # Seen on the live API while an instance was being deleted.
+    payload = {
+        "id": "abcd1234",
+        "name": "x",
+        "status": "destroying",
+        "tenant_id": "t",
+        "cloud_provider": "gcp",
+        "region": "europe-west1",
+        "type": "free-db",
+    }
+    instance = from_json(models.Instance, payload)
+    assert instance.memory is None
+    assert instance.status == models.InstanceStatus.DESTROYING

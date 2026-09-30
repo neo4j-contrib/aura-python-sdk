@@ -16,6 +16,7 @@ import logging
 from aura_python_sdk._client import AsyncAuraClient, AuraClient
 from aura_python_sdk._errors import (
     AuraAPIError,
+    AuraClientClosedError,
     AuraConfigurationError,
     AuraConnectionError,
     AuraError,
@@ -28,9 +29,11 @@ from aura_python_sdk._errors import (
     ErrorDetail,
     MetricNotFoundError,
     NotFoundError,
+    OperationFailedError,
     PermissionDeniedError,
     RateLimitError,
     ServerError,
+    WaitTimeoutError,
 )
 from aura_python_sdk._transport import AsyncHttpTransport, HttpRequest, HttpResponse, HttpTransport
 from aura_python_sdk._version import __version__
@@ -77,6 +80,7 @@ __all__ = [
     "AsyncHttpTransport",
     "AuraAPIError",
     "AuraClient",
+    "AuraClientClosedError",
     "AuraConfigurationError",
     "AuraConnectionError",
     "AuraError",
@@ -114,6 +118,7 @@ __all__ = [
     "MetricNotFoundError",
     "MetricsIntegration",
     "NotFoundError",
+    "OperationFailedError",
     "PermissionDeniedError",
     "PrometheusMetric",
     "PrometheusMetrics",
@@ -127,5 +132,6 @@ __all__ = [
     "StorageMetrics",
     "Tenant",
     "TenantSummary",
+    "WaitTimeoutError",
     "__version__",
 ]

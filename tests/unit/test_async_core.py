@@ -47,6 +47,19 @@ async def test_retries_network_errors_with_backoff() -> None:
     assert clock.sleeps == [1.0, 2.0]
 
 
+async def test_retryable_status_retried_for_get_only() -> None:
+    clock = FakeClock()
+    transport = FakeAsyncTransport([HttpResponse(503, {"Retry-After": "3"}), HttpResponse(200)])
+    response = await _http(transport, clock).send("GET", URL, {}, None, deadline=clock.now + 60)
+    assert response.status_code == 200
+    assert clock.sleeps == [3.0]
+
+    transport = FakeAsyncTransport([HttpResponse(503)])
+    response = await _http(transport, clock).send("POST", URL, {}, b"{}", deadline=clock.now + 60)
+    assert response.status_code == 503
+    assert len(transport.requests) == 1
+
+
 async def test_post_not_retried_once_sent() -> None:
     clock = FakeClock()
     transport = FakeAsyncTransport([AuraConnectionError("reset", request_sent=True)])
@@ -121,8 +134,6 @@ async def test_token_refreshed_after_401() -> None:
         ]
     )
     client = aura.AsyncAuraClient(client_id="id", client_secret="secret", transport=transport)
-    with pytest.raises(aura.AuthenticationError):
-        await client.tenants.list()
     assert await client.tenants.list() == []
     assert [r.headers["Authorization"] for r in transport.api_requests] == [
         "Bearer old",
@@ -157,6 +168,36 @@ async def test_does_not_close_caller_transport() -> None:
     async with aura.AsyncAuraClient(client_id="id", client_secret="secret", transport=transport):
         pass
     assert transport.closed is False
+
+
+async def test_call_after_aclose_raises_client_closed() -> None:
+    transport = FakeAsyncTransport()
+    client = aura.AsyncAuraClient(client_id="id", client_secret="secret", transport=transport)
+    await client.aclose()
+    with pytest.raises(aura.AuraClientClosedError, match="client is closed"):
+        await client.instances.list()
+    assert transport.requests == []
+
+
+async def test_with_options_shares_token_and_closes_with_parent() -> None:
+    transport = FakeAsyncTransport(
+        [token_response("tok"), json_response(200, {"data": []}), json_response(200, {"data": []})]
+    )
+    client = aura.AsyncAuraClient(
+        client_id="id", client_secret="secret", timeout=30, transport=transport
+    )
+    quick = client.with_options(timeout=5)
+    assert await quick.tenants.list() == []
+    assert await client.tenants.list() == []
+    assert [r.timeout for r in transport.api_requests] == pytest.approx([5.0, 30.0], abs=0.5)
+    assert len(transport.requests) == 3  # one token fetch
+
+    await quick.aclose()
+    assert not client._is_closed()
+    assert transport.closed is False
+    await client.aclose()
+    with pytest.raises(aura.AuraClientClosedError):
+        await quick.tenants.list()
 
 
 def test_transport_kinds_are_not_interchangeable() -> None:

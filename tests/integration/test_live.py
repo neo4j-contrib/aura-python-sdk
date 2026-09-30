@@ -5,13 +5,14 @@ Skipped unless AURA_CLIENT_ID and AURA_CLIENT_SECRET are set. Run them with:
     uv run pytest -m integration
 
 The tests only read unless AURA_INTEGRATION_WRITE=1 and AURA_TENANT_ID are also set. Then
-test_create_pause_resume_delete creates a free instance, pauses and resumes it, and deletes it.
+test_create_pause_resume_delete creates the smallest AuraDB Professional instance, pauses and
+resumes it, and deletes it. That runs for a few minutes and is billed.
 """
 
 from __future__ import annotations
 
+import contextlib
 import os
-import time
 from collections.abc import Callable, Iterator
 
 import pytest
@@ -53,7 +54,7 @@ def test_instances_list_and_get(client: aura.AuraClient) -> None:
 
 def test_instances_list_filtered_by_tenant(client: aura.AuraClient) -> None:
     tenant_id = client.tenants.list()[0].id
-    assert all(i.tenant_id == tenant_id for i in client.instances.list(tenant_id))
+    assert all(i.tenant_id == tenant_id for i in client.instances.list(tenant_id=tenant_id))
 
 
 def test_snapshots_for_first_instance(client: aura.AuraClient) -> None:
@@ -93,45 +94,57 @@ def test_bad_credentials_are_rejected() -> None:
         bad.tenants.list()
 
 
-def _wait_for(
-    client: aura.AuraClient, instance_id: str, status: aura.InstanceStatus, timeout: float = 900
-) -> aura.Instance:
-    deadline = time.monotonic() + timeout
-    while True:
-        try:
-            instance = client.instances.get(instance_id)
-            if instance.status == status:
-                return instance
-        except aura.NotFoundError:
-            pass  # a new instance can take a moment to appear
-        if time.monotonic() > deadline:
-            pytest.fail(f"instance {instance_id} did not reach {status} within {timeout:.0f}s")
-        time.sleep(10)
-
-
 @pytest.mark.skipif(
     not (WRITES_ENABLED and TENANT_ID), reason="needs AURA_INTEGRATION_WRITE=1 and AURA_TENANT_ID"
 )
-def test_create_pause_resume_delete(client: aura.AuraClient) -> None:
-    created = client.instances.create(
-        aura.InstanceConfig(
-            name="aura-python-sdk-it",
-            tenant_id=TENANT_ID,
-            cloud_provider=aura.CloudProvider.GCP,
-            region="europe-west1",
-            type=aura.InstanceType.FREE_DB,
-            version="5",
-            memory="1GB",
-        )
+def _smallest_pro_config(client: aura.AuraClient) -> aura.InstanceConfig:
+    """The cheapest AuraDB Professional configuration the tenant offers, preferring GCP."""
+    offered = [
+        c
+        for c in client.tenants.get(TENANT_ID).instance_configurations
+        if c.type == aura.InstanceType.PROFESSIONAL_DB
+    ]
+    if not offered:
+        pytest.skip("the tenant can't create AuraDB Professional instances")
+
+    def cost(c: aura.InstanceConfiguration) -> tuple[float, bool, bool]:
+        memory_gb = float(c.memory.removesuffix("GB"))  # the API offers sizes like "1GB"
+        return (memory_gb, c.cloud_provider != "gcp", c.region != "europe-west1")
+
+    chosen = min(offered, key=cost)
+    return aura.InstanceConfig(
+        name="aura-python-sdk-it",
+        tenant_id=TENANT_ID,
+        cloud_provider=chosen.cloud_provider,
+        region=chosen.region,
+        type=aura.InstanceType.PROFESSIONAL_DB,
+        version=chosen.version,
+        memory=chosen.memory,
     )
+
+
+def test_create_pause_resume_delete(client: aura.AuraClient) -> None:
+    # Uses the smallest AuraDB Professional instance: the free tier can't be paused. It runs for
+    # a few minutes, so the cost is small.
+    created = client.instances.create(_smallest_pro_config(client))
+    deleted = False
     try:
-        _wait_for(client, created.id, aura.InstanceStatus.RUNNING)
+        # Exercises the wait helper, including its tolerance of a new instance's early 404s.
+        running = client.instances.wait_for_status(created.id)
+        assert running.connection_url
         client.instances.pause(created.id)
-        _wait_for(client, created.id, aura.InstanceStatus.PAUSED)
+        client.instances.wait_for_status(created.id, status=aura.InstanceStatus.PAUSED)
         client.instances.resume(created.id)
-        _wait_for(client, created.id, aura.InstanceStatus.RUNNING)
-    finally:
+        client.instances.wait_for_status(created.id, status=aura.InstanceStatus.RUNNING)
         client.instances.delete(created.id)
+        deleted = True
+        # While it is torn down the API may leave fields such as memory out; get() must still
+        # parse it (or report it gone).
+        with contextlib.suppress(aura.NotFoundError):
+            client.instances.get(created.id)
+    finally:
+        if not deleted:
+            client.instances.delete(created.id)
 
 
 @pytest.mark.anyio
