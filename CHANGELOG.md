@@ -34,6 +34,8 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 - `repr(HttpRequest)` no longer shows the bearer token or the Basic-auth client credentials, so
   a custom transport can log its requests safely. It now shows `***` for the `Authorization`
   value and only the body's length.
+- SDK exceptions can be pickled. `AuraAPIError`, `RateLimitError` and `AuraConnectionError`
+  failed to unpickle, which broke `multiprocessing`, `ProcessPoolExecutor` and Celery.
 
 ### Changed
 
@@ -52,3 +54,5 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
   `cmek.list(tenant_id=...)` and `snapshots.list(instance_id, date=...)`.
 - **Breaking:** `QueryMetrics.avg_latency_ms` is renamed `median_latency_ms`. It has always held
   the median (q50) query latency; the Go SDK's name for it is `AvgLatencyMs`.
+- `AuraConnectionError` is also a `ConnectionError`, and `AuraTimeoutError` is also a
+  `TimeoutError`, so generic network error handling catches them.

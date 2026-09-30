@@ -8,11 +8,13 @@ Every exception derives from :class:`AuraError`. Errors returned by the Aura API
 from __future__ import annotations
 
 import email.utils
+import functools
 import json
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from http import HTTPStatus
+from typing import Any
 
 
 class AuraError(Exception):
@@ -27,20 +29,25 @@ class AuraValidationError(AuraError, ValueError):
     """An argument failed client-side validation; no request was sent."""
 
 
-class AuraConnectionError(AuraError):
+class AuraConnectionError(AuraError, ConnectionError):
     """The request could not be completed because of a network failure.
 
     ``request_sent`` is False when the failure happened before the request reached the server
-    (for example DNS or connect errors), so retrying cannot duplicate the operation.
+    (for example DNS or connect errors), so retrying cannot duplicate the operation. Also a
+    :class:`ConnectionError`, so generic network error handling catches it.
     """
 
     def __init__(self, message: str, *, request_sent: bool) -> None:
         super().__init__(message)
         self.request_sent = request_sent
 
+    def __reduce__(self) -> tuple[Any, ...]:
+        # The keyword-only argument would otherwise be lost when pickling (multiprocessing).
+        return (functools.partial(type(self), str(self), request_sent=self.request_sent), ())
 
-class AuraTimeoutError(AuraConnectionError):
-    """The request did not complete within the configured timeout."""
+
+class AuraTimeoutError(AuraConnectionError, TimeoutError):
+    """The request did not complete within the configured timeout. Also a :class:`TimeoutError`."""
 
 
 class AuraResponseError(AuraError):
@@ -76,6 +83,18 @@ class AuraAPIError(AuraError):
         self.details: tuple[ErrorDetail, ...] = tuple(details)
         self.request_id = request_id
         super().__init__(self._format())
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        # Rebuild from the attributes, not the formatted message, so pickling round-trips.
+        return (functools.partial(type(self), **self._init_kwargs()), ())
+
+    def _init_kwargs(self) -> dict[str, Any]:
+        return {
+            "status_code": self.status_code,
+            "message": self.message,
+            "details": self.details,
+            "request_id": self.request_id,
+        }
 
     def _format(self) -> str:
         text = f"API error (status {self.status_code}): {self.message}"
@@ -140,6 +159,9 @@ class RateLimitError(AuraAPIError):
     ) -> None:
         self.retry_after = retry_after
         super().__init__(status_code, message, details, request_id=request_id)
+
+    def _init_kwargs(self) -> dict[str, Any]:
+        return {**super()._init_kwargs(), "retry_after": self.retry_after}
 
 
 class ServerError(AuraAPIError):

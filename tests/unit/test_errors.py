@@ -1,9 +1,11 @@
 import json
+import pickle
 from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
 
 import pytest
 
+import aura_python_sdk as aura
 from aura_python_sdk import (
     AuraAPIError,
     AuraError,
@@ -137,3 +139,51 @@ def test_error_class_override_keeps_details() -> None:
 def test_is_unauthorized() -> None:
     assert api_error_from_response(401, b"", {}).is_unauthorized
     assert not api_error_from_response(403, b"", {}).is_unauthorized
+
+
+def _exported_exceptions() -> set[type[BaseException]]:
+
+    exported = (getattr(aura, name) for name in aura.__all__)
+    return {obj for obj in exported if isinstance(obj, type) and issubclass(obj, BaseException)}
+
+
+def _examples() -> list[BaseException]:
+    detail = aura.ErrorDetail(message="bad name", reason="invalid", field="name")
+    api_classes = [
+        cls
+        for cls in _exported_exceptions()
+        if issubclass(cls, AuraAPIError) and cls is not aura.RateLimitError
+    ]
+    return [
+        *(cls(418, "teapot", [detail], request_id="req-1") for cls in api_classes),
+        aura.RateLimitError(429, "slow down", request_id="req-2", retry_after=1.5),
+        aura.AuraConnectionError("reset", request_sent=False),
+        aura.AuraTimeoutError("timed out", request_sent=True),
+        aura.AuraError("plain"),
+        aura.AuraConfigurationError("bad option"),
+        aura.AuraValidationError("bad argument"),
+        aura.AuraResponseError("bad body"),
+        aura.MetricNotFoundError("no metric"),
+    ]
+
+
+def test_every_exported_exception_has_a_pickling_example() -> None:
+    assert {type(e) for e in _examples()} == _exported_exceptions()
+
+
+@pytest.mark.parametrize("error", _examples(), ids=lambda e: type(e).__name__)
+def test_exceptions_survive_pickling(error: BaseException) -> None:
+    # multiprocessing, ProcessPoolExecutor and Celery send exceptions between processes.
+    copy = pickle.loads(pickle.dumps(error))  # noqa: S301 - round-tripping our own object
+    assert type(copy) is type(error)
+    assert str(copy) == str(error)
+    assert vars(copy) == vars(error)
+
+
+def test_network_errors_are_builtin_network_errors() -> None:
+    assert issubclass(aura.AuraConnectionError, ConnectionError)
+    assert issubclass(aura.AuraTimeoutError, TimeoutError)
+    assert issubclass(aura.AuraTimeoutError, ConnectionError)
+    error = aura.AuraConnectionError("reset", request_sent=False)
+    assert error.args == ("reset",)
+    assert error.errno is None

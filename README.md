@@ -274,8 +274,8 @@ Every exception derives from `AuraError`:
 AuraError
 ├── AuraConfigurationError   (ValueError)  bad client options
 ├── AuraValidationError      (ValueError)  bad arguments; nothing was sent
-├── AuraConnectionError                    network failure after retries
-│   └── AuraTimeoutError
+├── AuraConnectionError   (ConnectionError) network failure after retries
+│   └── AuraTimeoutError  (TimeoutError)
 ├── AuraResponseError                      oversized or malformed response
 ├── MetricNotFoundError      (LookupError)
 └── AuraAPIError                           non-2xx response
@@ -298,6 +298,10 @@ except aura.AuraAPIError as err:
     for detail in err.details:
         print(detail.reason, detail.field, detail.message)
 ```
+
+The standard-library base classes in brackets mean generic handlers work too: for example,
+`except TimeoutError` in a retry library catches `AuraTimeoutError`. Every SDK exception can be
+pickled, so it survives `multiprocessing` and `concurrent.futures.ProcessPoolExecutor`.
 
 `AuraAPIError` also provides the Go SDK's helpers: `is_not_found`, `is_unauthorized`,
 `is_bad_request`, `has_multiple_errors` and `all_errors()`.
