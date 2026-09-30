@@ -74,3 +74,5 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
   `AuthenticationError`.
 - Docstrings: every service method lists the errors specific to it, `AuraClient` lists the
   errors any call can raise, and every exported class has a docstring.
+- The README's new Versioning section says what's public, and how breaking changes and
+  deprecations are handled before and after 1.0.

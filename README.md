@@ -31,6 +31,7 @@ You need an Aura API client ID and secret. See
 - [Logging](#logging)
 - [Custom transports and testing](#custom-transports-and-testing)
 - [Coming from the Go SDK](#coming-from-the-go-sdk)
+- [Versioning](#versioning)
 - [Development](#development)
 
 ## Installation
@@ -428,6 +429,21 @@ keys; list filters; and the full set of `update` fields. The design notes are in
 ```sh
 uv run python examples/list_instances.py
 ```
+
+## Versioning
+
+**What's public:** the names exported from `aura_python_sdk`, `aura_python_sdk.models` and
+`aura_python_sdk.services`. Anything whose module or name starts with an underscore, such as
+`aura_python_sdk._internal`, is private and can change in any release.
+
+**Stability:** the SDK follows [Semantic Versioning](https://semver.org/) from 1.0.0. Until
+then, a 0.x minor release may make breaking changes. Each one is marked **Breaking** in
+[CHANGELOG.md](CHANGELOG.md).
+
+**Deprecation:** from 1.0.0, a public name is removed or renamed only after at least one minor
+release in which using it raises a `DeprecationWarning`.
+
+The SDK targets version 1 of the Aura API.
 
 ## Development
 
