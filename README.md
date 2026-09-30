@@ -167,8 +167,8 @@ async client implements `AsyncHttpTransport` (`async send()` and `async aclose()
 ## Tenants
 
 ```python
-for tenant in client.tenants.list():
-    print(tenant.id, tenant.name)
+for summary in client.tenants.list():
+    print(summary.id, summary.name)
 
 tenant = client.tenants.get("6981ace7-efe8-4f5c-b7c5-267b5162ce91")
 for config in tenant.instance_configurations:
@@ -299,6 +299,8 @@ Get a metrics endpoint from `tenants.get_metrics_integration()` or from an insta
 ```python
 instance = client.instances.get("2f49c2b3")
 url = instance.metrics_integration_url
+if url is None:
+    raise SystemExit("metrics are not enabled for this instance")
 
 metrics = client.prometheus.fetch_raw_metrics(url)
 cpu = metrics.value("neo4j_aura_cpu_usage", instance_mode="PRIMARY")
