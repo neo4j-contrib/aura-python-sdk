@@ -8,6 +8,10 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 
 ## Unreleased
 
+## v0.1.4 - 2026-09-30
+
+Fixes from the security review ([docs/security-review.md](docs/security-review.md)).
+
 ### Changed
 
 - **Breaking:** `allow_insecure_base_url` no longer lifts the Prometheus URL allowlist. Use the
@@ -30,6 +34,12 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
   already dropped the token on such a redirect, but still sent the rest of the request, and read
   the response, in cleartext. Redirects that stay on HTTPS, and `http://` test servers, are
   unaffected.
+
+### Security
+
+- Every GitHub Action in the CI and release workflows is pinned to a full commit SHA, and
+  Dependabot keeps the pins and the uv lockfile current. A moved tag on a third-party action can
+  no longer change what runs with publishing rights.
 
 ## v0.1.3 - 2026-09-30
 
