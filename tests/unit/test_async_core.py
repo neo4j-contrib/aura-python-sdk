@@ -179,6 +179,27 @@ async def test_call_after_aclose_raises_client_closed() -> None:
     assert transport.requests == []
 
 
+async def test_with_options_shares_token_and_closes_with_parent() -> None:
+    transport = FakeAsyncTransport(
+        [token_response("tok"), json_response(200, {"data": []}), json_response(200, {"data": []})]
+    )
+    client = aura.AsyncAuraClient(
+        client_id="id", client_secret="secret", timeout=30, transport=transport
+    )
+    quick = client.with_options(timeout=5)
+    assert await quick.tenants.list() == []
+    assert await client.tenants.list() == []
+    assert [r.timeout for r in transport.api_requests] == pytest.approx([5.0, 30.0], abs=0.5)
+    assert len(transport.requests) == 3  # one token fetch
+
+    await quick.aclose()
+    assert not client._is_closed()
+    assert transport.closed is False
+    await client.aclose()
+    with pytest.raises(aura.AuraClientClosedError):
+        await quick.tenants.list()
+
+
 def test_transport_kinds_are_not_interchangeable() -> None:
     with pytest.raises(aura.AuraConfigurationError, match="use AuraClient"):
         aura.AsyncAuraClient(client_id="id", client_secret="s", transport=FakeTransport())  # type: ignore[arg-type]

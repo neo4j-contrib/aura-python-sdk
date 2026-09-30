@@ -106,6 +106,19 @@ client = aura.AuraClient(
 `timeout` is one deadline for the whole call, covering the OAuth token fetch, every retry and
 every backoff. This matches the per-call `context.WithTimeout` in the Go SDK.
 
+To change `timeout` or `max_retries` for some calls only, use `with_options()`. It returns a
+copy of the client that shares its connections and OAuth token, so it's cheap to call each time:
+
+```python
+instance = client.with_options(timeout=5).instances.get("2f49c2b3")
+
+patient = client.with_options(timeout=600, max_retries=10)
+patient.instances.list()
+```
+
+Closing a copy doesn't close the connections. Closing the original client closes its copies
+too.
+
 Retries use backoff from 1 s doubling to 5 s, and stop at `max_retries` or when the next wait
 would pass the deadline. Two things are retried:
 

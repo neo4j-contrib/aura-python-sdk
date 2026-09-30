@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -64,6 +65,21 @@ def build_config(
         max_response_size=_validate_positive_int("max response size", max_response_size),
         user_agent=_validate_header_value("user agent", user_agent, allow_empty=False),
         default_headers=_filter_default_headers(default_headers),
+    )
+
+
+def override_config(
+    config: ClientConfig, *, timeout: float | None, max_retries: int | None
+) -> ClientConfig:
+    """A copy of ``config`` with the options ``with_options`` can change, validated the same way."""
+    return dataclasses.replace(
+        config,
+        timeout=config.timeout if timeout is None else _validate_timeout(timeout),
+        max_retries=(
+            config.max_retries
+            if max_retries is None
+            else _validate_non_negative_int("max retries", max_retries)
+        ),
     )
 
 

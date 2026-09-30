@@ -164,3 +164,66 @@ def test_request_repr_hides_credentials() -> None:
     assert "tok-value" not in repr(api_request)
     assert "'Authorization': '***'" in repr(api_request)
     assert "'User-Agent'" in repr(api_request)
+
+
+def test_with_options_overrides_timeout_and_shares_token_and_transport() -> None:
+    transport = FakeTransport(
+        [token_response("tok"), json_response(200, {"data": []}), json_response(200, {"data": []})]
+    )
+    client = AuraClient(client_id="id", client_secret="secret", timeout=30, transport=transport)
+    quick = client.with_options(timeout=5)
+
+    assert quick.tenants.list() == []
+    assert client.tenants.list() == []
+    # One token fetch serves both; each call uses its own client's timeout.
+    token, quick_call, normal_call = transport.requests
+    assert token.url.endswith("/oauth/token")
+    assert (quick_call.timeout, normal_call.timeout) == pytest.approx((5.0, 30.0), abs=0.5)
+    assert quick_call.headers["Authorization"] == normal_call.headers["Authorization"]
+
+
+def test_with_options_overrides_max_retries() -> None:
+    transport = FakeTransport([token_response(), json_response(503, {}), json_response(503, {})])
+    client = AuraClient(client_id="id", client_secret="secret", transport=transport)
+    with pytest.raises(aura.ServerError):
+        client.with_options(max_retries=0).tenants.list()
+    assert len(transport.api_requests) == 1
+
+
+def test_with_options_keeps_unspecified_options() -> None:
+    client = AuraClient(
+        client_id="id", client_secret="secret", timeout=12, max_retries=7, transport=FakeTransport()
+    )
+    copy = client.with_options(max_retries=1)
+    assert (copy._config.timeout, copy._config.max_retries) == (12.0, 1)
+    assert (client._config.timeout, client._config.max_retries) == (12.0, 7)
+    assert copy.base_url == client.base_url
+
+
+def test_with_options_validates() -> None:
+    client = AuraClient(client_id="id", client_secret="secret", transport=FakeTransport())
+    with pytest.raises(AuraConfigurationError, match="timeout"):
+        client.with_options(timeout=0)
+    with pytest.raises(AuraConfigurationError, match="max retries"):
+        client.with_options(max_retries=-1)
+
+
+def test_closing_a_copy_leaves_the_client_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    closed: list[bool] = []
+    monkeypatch.setattr(HttpxTransport, "close", lambda self: closed.append(True))
+    client = AuraClient(client_id="id", client_secret="secret")
+    copy = client.with_options(timeout=5)
+    copy.close()
+    assert closed == []
+    with pytest.raises(aura.AuraClientClosedError):
+        copy.tenants.list()
+    client.close()
+    assert closed == [True]
+
+
+def test_closing_the_client_closes_its_copies() -> None:
+    client = AuraClient(client_id="id", client_secret="secret", transport=FakeTransport())
+    copy = client.with_options(timeout=5).with_options(max_retries=0)
+    client.close()
+    with pytest.raises(aura.AuraClientClosedError):
+        copy.tenants.list()

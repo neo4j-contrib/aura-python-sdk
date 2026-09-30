@@ -18,6 +18,7 @@ from aura_python_sdk._config import (
     DEFAULT_USER_AGENT,
     ClientConfig,
     build_config,
+    override_config,
 )
 from aura_python_sdk._errors import AuraConfigurationError
 from aura_python_sdk._internal._auth import AsyncTokenManager, TokenManager
@@ -148,35 +149,58 @@ class AuraClient:
                 "transport must implement send() and close(); use AsyncAuraClient for an "
                 "async transport"
             )
-        self._logger = _resolve_logger(logger)
-        self._owns_transport = transport is None
-        self._transport: HttpTransport = transport or HttpxTransport()
+        self._setup(
+            logger=_resolve_logger(logger),
+            transport=transport or HttpxTransport(),
+            owns_transport=transport is None,
+            auth=None,
+            parent=None,
+        )
+        self._logger.debug(
+            "Aura API client initialized",
+            extra={"base_url": self._config.base_url, "api_version": API_VERSION},
+        )
+
+    def _setup(
+        self,
+        *,
+        logger: logging.Logger,
+        transport: HttpTransport,
+        owns_transport: bool,
+        auth: TokenManager | None,
+        parent: AuraClient | None,
+    ) -> None:
+        """Build the request stack and services. ``with_options`` passes a shared ``auth``."""
+        self._logger = logger
+        self._transport = transport
+        self._owns_transport = owns_transport
+        self._parent = parent
         self._closed = False
 
         http = HttpService(
-            self._transport,
+            transport,
             max_retries=self._config.max_retries,
             max_response_size=self._config.max_response_size,
-            logger=self._logger.getChild("http"),
+            logger=logger.getChild("http"),
         )
-        auth = TokenManager(
+        self._auth = auth or TokenManager(
             client_id=self._config.client_id,
             client_secret=self._config.client_secret,
             token_url=f"{self._config.base_url}/oauth/token",
             user_agent=self._config.user_agent,
             http=http,
-            logger=self._logger.getChild("auth"),
+            logger=logger.getChild("auth"),
         )
         self._api = RequestService(
             http=http,
-            auth=auth,
+            auth=self._auth,
             base_url=self._config.base_url,
             api_version=API_VERSION,
             user_agent=self._config.user_agent,
             default_headers=self._config.default_headers,
             timeout=self._config.timeout,
-            logger=self._logger.getChild("api"),
-            is_closed=lambda: self._closed,
+            logger=logger.getChild("api"),
+            is_closed=self._is_closed,
         )
 
         self.tenants = TenantService(self._api, self._logger.getChild("tenants"))
@@ -192,11 +216,6 @@ class AuraClient:
             allow_untrusted_urls=self._config.allow_insecure_base_url,
         )
 
-        self._logger.debug(
-            "Aura API client initialized",
-            extra={"base_url": self._config.base_url, "api_version": API_VERSION},
-        )
-
     @classmethod
     def from_env(cls, **options: Unpack[_ClientOptions]) -> Self:
         """Build a client with credentials from ``AURA_CLIENT_ID`` and ``AURA_CLIENT_SECRET``.
@@ -205,6 +224,31 @@ class AuraClient:
         """
         client_id, client_secret = _env_credentials()
         return cls(client_id=client_id, client_secret=client_secret, **options)
+
+    def with_options(self, *, timeout: float | None = None, max_retries: int | None = None) -> Self:
+        """A copy of this client with a different ``timeout`` or ``max_retries``.
+
+        The copy shares this client's connections and OAuth token, so it is cheap to create,
+        for example for one slow or one quick call::
+
+            client.with_options(timeout=5).instances.get(instance_id)
+
+        Options you don't pass keep this client's values. Closing the copy doesn't close the
+        connections; closing this client closes the copy too.
+        """
+        clone = type(self).__new__(type(self))
+        clone._config = override_config(self._config, timeout=timeout, max_retries=max_retries)
+        clone._setup(
+            logger=self._logger,
+            transport=self._transport,
+            owns_transport=False,
+            auth=self._auth,
+            parent=self,
+        )
+        return clone
+
+    def _is_closed(self) -> bool:
+        return self._closed or (self._parent is not None and self._parent._is_closed())
 
     @property
     def base_url(self) -> str:
@@ -280,35 +324,54 @@ class AsyncAuraClient:
                 "transport must implement async send() and aclose(); use AuraClient for a "
                 "sync transport"
             )
-        self._logger = _resolve_logger(logger)
-        self._owns_transport = transport is None
-        self._transport: AsyncHttpTransport = transport or AsyncHttpxTransport()
+        self._setup(
+            logger=_resolve_logger(logger),
+            transport=transport or AsyncHttpxTransport(),
+            owns_transport=transport is None,
+            auth=None,
+            parent=None,
+        )
+
+    def _setup(
+        self,
+        *,
+        logger: logging.Logger,
+        transport: AsyncHttpTransport,
+        owns_transport: bool,
+        auth: AsyncTokenManager | None,
+        parent: AsyncAuraClient | None,
+    ) -> None:
+        """Build the request stack and services. ``with_options`` passes a shared ``auth``."""
+        self._logger = logger
+        self._transport = transport
+        self._owns_transport = owns_transport
+        self._parent = parent
         self._closed = False
 
         http = AsyncHttpService(
-            self._transport,
+            transport,
             max_retries=self._config.max_retries,
             max_response_size=self._config.max_response_size,
-            logger=self._logger.getChild("http"),
+            logger=logger.getChild("http"),
         )
-        auth = AsyncTokenManager(
+        self._auth = auth or AsyncTokenManager(
             client_id=self._config.client_id,
             client_secret=self._config.client_secret,
             token_url=f"{self._config.base_url}/oauth/token",
             user_agent=self._config.user_agent,
             http=http,
-            logger=self._logger.getChild("auth"),
+            logger=logger.getChild("auth"),
         )
         self._api = AsyncRequestService(
             http=http,
-            auth=auth,
+            auth=self._auth,
             base_url=self._config.base_url,
             api_version=API_VERSION,
             user_agent=self._config.user_agent,
             default_headers=self._config.default_headers,
             timeout=self._config.timeout,
-            logger=self._logger.getChild("api"),
-            is_closed=lambda: self._closed,
+            logger=logger.getChild("api"),
+            is_closed=self._is_closed,
         )
 
         self.tenants = AsyncTenantService(self._api, self._logger.getChild("tenants"))
@@ -332,6 +395,25 @@ class AsyncAuraClient:
         """
         client_id, client_secret = _env_credentials()
         return cls(client_id=client_id, client_secret=client_secret, **options)
+
+    def with_options(self, *, timeout: float | None = None, max_retries: int | None = None) -> Self:
+        """A copy of this client with a different ``timeout`` or ``max_retries``.
+
+        See :meth:`AuraClient.with_options`. Closing the copy doesn't close the connections.
+        """
+        clone = type(self).__new__(type(self))
+        clone._config = override_config(self._config, timeout=timeout, max_retries=max_retries)
+        clone._setup(
+            logger=self._logger,
+            transport=self._transport,
+            owns_transport=False,
+            auth=self._auth,
+            parent=self,
+        )
+        return clone
+
+    def _is_closed(self) -> bool:
+        return self._closed or (self._parent is not None and self._parent._is_closed())
 
     @property
     def base_url(self) -> str:
