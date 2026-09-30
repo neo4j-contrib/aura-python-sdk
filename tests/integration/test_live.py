@@ -1,0 +1,141 @@
+"""Live tests against the real Aura API.
+
+Skipped unless AURA_CLIENT_ID and AURA_CLIENT_SECRET are set. Run them with:
+
+    uv run pytest -m integration
+
+The tests only read unless AURA_INTEGRATION_WRITE=1 and AURA_TENANT_ID are also set. Then
+test_create_pause_resume_delete creates a free instance, pauses and resumes it, and deletes it.
+"""
+
+from __future__ import annotations
+
+import os
+import time
+from collections.abc import Callable, Iterator
+
+import pytest
+
+import aura_python_sdk as aura
+
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        not (os.environ.get("AURA_CLIENT_ID") and os.environ.get("AURA_CLIENT_SECRET")),
+        reason="AURA_CLIENT_ID and AURA_CLIENT_SECRET are not set",
+    ),
+]
+
+WRITES_ENABLED = os.environ.get("AURA_INTEGRATION_WRITE") == "1"
+TENANT_ID = os.environ.get("AURA_TENANT_ID", "")
+
+
+@pytest.fixture(scope="module")
+def client() -> Iterator[aura.AuraClient]:
+    with aura.AuraClient.from_env(timeout=60) as live_client:
+        yield live_client
+
+
+def test_tenants(client: aura.AuraClient) -> None:
+    tenants = client.tenants.list()
+    assert tenants, "the credentials should see at least one tenant"
+    tenant = client.tenants.get(tenants[0].id)
+    assert tenant.id == tenants[0].id
+
+
+def test_instances_list_and_get(client: aura.AuraClient) -> None:
+    instances = client.instances.list()
+    for summary in instances[:3]:
+        instance = client.instances.get(summary.id)
+        assert instance.id == summary.id
+        assert instance.tenant_id == summary.tenant_id
+
+
+def test_instances_list_filtered_by_tenant(client: aura.AuraClient) -> None:
+    tenant_id = client.tenants.list()[0].id
+    assert all(i.tenant_id == tenant_id for i in client.instances.list(tenant_id))
+
+
+def test_snapshots_for_first_instance(client: aura.AuraClient) -> None:
+    instances = client.instances.list()
+    if not instances:
+        pytest.skip("no instances to list snapshots for")
+    for snapshot in client.snapshots.list(instances[0].id):
+        assert snapshot.instance_id == instances[0].id
+
+
+def _skip_if_forbidden(call: Callable[[], object]) -> object:
+    """Run ``call``, but skip the test if these credentials lack permission for it."""
+    try:
+        return call()
+    except aura.PermissionDeniedError as err:
+        pytest.skip(f"credentials lack permission: {err.message}")
+
+
+def test_cmek_list(client: aura.AuraClient) -> None:
+    assert isinstance(_skip_if_forbidden(client.cmek.list), list)
+
+
+def test_sessions_list(client: aura.AuraClient) -> None:
+    assert isinstance(_skip_if_forbidden(client.graph_analytics.list), list)
+
+
+def test_unknown_instance_is_not_found(client: aura.AuraClient) -> None:
+    with pytest.raises(aura.NotFoundError):
+        client.instances.get("00000000")
+
+
+def test_bad_credentials_are_rejected() -> None:
+    with (
+        aura.AuraClient(client_id="not-real", client_secret="not-real") as bad,
+        pytest.raises(aura.AuthenticationError),
+    ):
+        bad.tenants.list()
+
+
+def _wait_for(
+    client: aura.AuraClient, instance_id: str, status: aura.InstanceStatus, timeout: float = 900
+) -> aura.Instance:
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            instance = client.instances.get(instance_id)
+            if instance.status == status:
+                return instance
+        except aura.NotFoundError:
+            pass  # a new instance can take a moment to appear
+        if time.monotonic() > deadline:
+            pytest.fail(f"instance {instance_id} did not reach {status} within {timeout:.0f}s")
+        time.sleep(10)
+
+
+@pytest.mark.skipif(
+    not (WRITES_ENABLED and TENANT_ID), reason="needs AURA_INTEGRATION_WRITE=1 and AURA_TENANT_ID"
+)
+def test_create_pause_resume_delete(client: aura.AuraClient) -> None:
+    created = client.instances.create(
+        aura.InstanceConfig(
+            name="aura-python-sdk-it",
+            tenant_id=TENANT_ID,
+            cloud_provider=aura.CloudProvider.GCP,
+            region="europe-west1",
+            type=aura.InstanceType.FREE_DB,
+            version="5",
+            memory="1GB",
+        )
+    )
+    try:
+        _wait_for(client, created.id, aura.InstanceStatus.RUNNING)
+        client.instances.pause(created.id)
+        _wait_for(client, created.id, aura.InstanceStatus.PAUSED)
+        client.instances.resume(created.id)
+        _wait_for(client, created.id, aura.InstanceStatus.RUNNING)
+    finally:
+        client.instances.delete(created.id)
+
+
+@pytest.mark.anyio
+async def test_async_client_reads_the_same_data(client: aura.AuraClient) -> None:
+    async with aura.AsyncAuraClient.from_env(timeout=60) as async_client:
+        async_tenants = await async_client.tenants.list()
+    assert {t.id for t in async_tenants} == {t.id for t in client.tenants.list()}

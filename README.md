@@ -1,11 +1,369 @@
 # aura-python-sdk
 
-Python client library for the [Neo4j Aura API](https://neo4j.com/docs/aura/api/overview/) (v1),
-modelled on [aura-go-sdk](https://github.com/neo4j-contrib/aura-go-sdk).
+A Python client for the [Neo4j Aura API](https://neo4j.com/docs/aura/api/overview/) (v1). For
+example, `client.instances.list()` returns your Aura instances. It is modelled on
+[aura-go-sdk](https://github.com/neo4j-contrib/aura-go-sdk) and covers the whole v1 API.
 
-> Status: under development. See [PLAN.md](PLAN.md).
+- Sync (`AuraClient`) and asyncio (`AsyncAuraClient`) clients with the same services.
+- Typed throughout (`py.typed`, checked with `mypy --strict`), using frozen dataclass models.
+- One runtime dependency, [httpx](https://www.python-httpx.org/), kept behind the SDK's own
+  transport interface.
+- Client-side validation, automatic OAuth token handling, safe retries, and one exception
+  class per error.
 
-Requires Python 3.11+.
+You need an Aura API client ID and secret. See
+[Aura API authentication](https://neo4j.com/docs/aura/api/authentication/).
+
+## Contents
+
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [Timeouts and retries](#timeouts-and-retries)
+- [Async](#async)
+- [Tenants](#tenants)
+- [Instances](#instances)
+- [Snapshots](#snapshots)
+- [Customer-managed keys](#customer-managed-keys)
+- [Graph Analytics sessions](#graph-analytics-sessions)
+- [Prometheus metrics](#prometheus-metrics)
+- [Error handling](#error-handling)
+- [Logging](#logging)
+- [Custom transports and testing](#custom-transports-and-testing)
+- [Coming from the Go SDK](#coming-from-the-go-sdk)
+- [Development](#development)
+
+## Installation
+
+Requires Python 3.11 or later.
+
+```sh
+pip install aura-python-sdk
+```
+
+## Quick start
+
+```python
+import aura_python_sdk as aura
+
+with aura.AuraClient(client_id="your-client-id", client_secret="your-client-secret") as client:
+    for instance in client.instances.list():
+        print(f"{instance.name} ({instance.id})")
+```
+
+Or read the credentials from the `AURA_CLIENT_ID` and `AURA_CLIENT_SECRET` environment
+variables:
+
+```python
+client = aura.AuraClient.from_env()
+```
+
+Using the client as a context manager (or calling `client.close()`) releases its pooled
+connections.
+
+## Configuration
+
+Every option is keyword-only. An invalid option raises `AuraConfigurationError` straight away.
+
+```python
+import logging
+
+client = aura.AuraClient(
+    client_id="...",
+    client_secret="...",
+    timeout=60,  # seconds per call (default 120)
+    max_retries=5,  # network-failure retries (default 3)
+    max_response_size=20 * 1024 * 1024,  # bytes (default 10 MB)
+    base_url="https://api.staging.neo4j.io",
+    user_agent="my-app/1.0",  # default "aura-python-sdk/<version>"
+    default_headers={"X-Team": "platform"},  # added to every request
+    logger=logging.getLogger("my-app.aura"),
+)
+```
+
+| Option | Default | Notes |
+| --- | --- | --- |
+| `client_id`, `client_secret` | required | Must not be empty. |
+| `base_url` | `https://api.neo4j.io` | Must be HTTPS. |
+| `allow_insecure_base_url` | `False` | Allows an `http://` base URL, and metrics URLs outside `*.neo4j.io`. For local test servers only. |
+| `timeout` | `120` | Seconds allowed for each call (see below). |
+| `max_retries` | `3` | `0` disables retries. |
+| `max_response_size` | 10 MB | Larger responses raise `AuraResponseError`. |
+| `user_agent` | `aura-python-sdk/<version>` | |
+| `default_headers` | none | `Authorization`, `Content-Type` and `User-Agent` are ignored. |
+| `logger` | `logging.getLogger("aura_python_sdk")` | |
+| `transport` | built-in httpx transport | See [Custom transports](#custom-transports-and-testing). |
+
+## Timeouts and retries
+
+`timeout` is one deadline for the whole call, covering the OAuth token fetch, every retry and
+every backoff. This matches the per-call `context.WithTimeout` in the Go SDK.
+
+Only network failures are retried, with backoff from 1 s doubling to 5 s. A response with an HTTP
+status, including 429 and 5xx, is never retried. If a request might already have reached the
+server (a read timeout or a dropped connection), only idempotent methods (`GET`, `PUT`, `DELETE`)
+are retried. That means a `create` or `pause` is never sent twice.
+
+## Async
+
+`AsyncAuraClient` takes the same options, and its services have the same methods, which you
+await. Concurrent calls share one OAuth token.
+
+```python
+import asyncio
+
+import aura_python_sdk as aura
+
+
+async def main() -> None:
+    async with aura.AsyncAuraClient.from_env() as client:
+        summaries = await client.instances.list()
+        instances = await asyncio.gather(*(client.instances.get(s.id) for s in summaries))
+        for instance in instances:
+            print(instance.name, instance.status)
+
+
+asyncio.run(main())
+```
+
+Use `async with` or `await client.aclose()` to release connections. `prometheus.get_metric_value`
+does no I/O, so it is a plain method on both clients. A custom transport for the async client
+implements `AsyncHttpTransport` (`async send()` and `async aclose()`).
+
+## Tenants
+
+```python
+for tenant in client.tenants.list():
+    print(tenant.id, tenant.name)
+
+tenant = client.tenants.get("6981ace7-efe8-4f5c-b7c5-267b5162ce91")
+for config in tenant.instance_configurations:
+    print(config.type, config.cloud_provider, config.region, config.memory, config.version)
+
+endpoint = client.tenants.get_metrics_integration(tenant.id).endpoint
+```
+
+## Instances
+
+```python
+from aura_python_sdk import CloudProvider, InstanceConfig, InstanceStatus, InstanceType
+
+instances = client.instances.list()  # or list(tenant_id=...)
+instance = client.instances.get("2f49c2b3")
+if instance.status == InstanceStatus.RUNNING:
+    print(instance.connection_url)
+
+created = client.instances.create(
+    InstanceConfig(
+        name="my-instance",
+        tenant_id="6981ace7-efe8-4f5c-b7c5-267b5162ce91",
+        cloud_provider=CloudProvider.GCP,
+        region="europe-west1",
+        type=InstanceType.PROFESSIONAL_DB,
+        version="5",
+        memory="2GB",
+    )
+)
+print(created.id, created.username, created.password)  # the password is shown only once
+```
+
+Creation is asynchronous: poll `get()` until the status is `running`. See
+[examples/create_delete_instance.py](examples/create_delete_instance.py).
+
+| Method | What it does |
+| --- | --- |
+| `list(tenant_id=None)` | Summaries of every instance, optionally in one tenant. |
+| `get(instance_id)` | Full details. |
+| `create(config)` | Starts creating an instance. Returns the initial credentials. |
+| `create_from_instance(source_instance_id, config)` | Clones another instance's current data. |
+| `create_from_snapshot(source_instance_id, source_snapshot_id, config)` | Creates from an exportable snapshot. |
+| `update(instance_id, *, name, memory, storage, vector_optimized, graph_analytics_plugin, cdc_enrichment_mode, secondaries_count)` | Changes only the fields you pass. |
+| `pause(instance_id)` / `resume(instance_id)` | |
+| `delete(instance_id)` | Cannot be undone. |
+| `overwrite_from_instance(instance_id, source_instance_id)` | Replaces the data with another instance's. |
+| `overwrite_from_snapshot(instance_id, source_snapshot_id)` | Replaces the data with a snapshot. |
+| `estimate_size(*, node_count, relationship_count, instance_type, algorithm_categories)` | Sizing for AuraDS instances. |
+| `upgrade(instance_id, *, memory, storage)` | Professional to Business Critical. Pass both sizes, or neither. |
+
+`CreatedInstance.password` is left out of `repr()`, so logging the object doesn't expose it.
+
+## Snapshots
+
+```python
+import datetime
+
+snapshots = client.snapshots.list("2f49c2b3")  # today
+snapshots = client.snapshots.list("2f49c2b3", datetime.date(2026, 9, 1))
+
+started = client.snapshots.create("2f49c2b3")
+snapshot = client.snapshots.get("2f49c2b3", started.snapshot_id)
+client.snapshots.restore("2f49c2b3", snapshot.snapshot_id)
+```
+
+## Customer-managed keys
+
+```python
+keys = client.cmek.list()  # or list(tenant_id=...)
+key = client.cmek.create(
+    name="Production Key",
+    key_id="arn:aws:kms:us-west-2:111122223333:key/1234abcd-...",
+    tenant_id="6981ace7-efe8-4f5c-b7c5-267b5162ce91",
+    cloud_provider=CloudProvider.AWS,
+    region="us-west-2",
+    instance_type=InstanceType.ENTERPRISE_DB,
+)
+print(client.cmek.get(key.id).status)
+client.cmek.delete(key.id)
+```
+
+## Graph Analytics sessions
+
+```python
+from aura_python_sdk import GDSSessionConfig
+
+estimate = client.graph_analytics.estimate_size(node_count=1_000_000, relationship_count=5_000_000)
+
+session = client.graph_analytics.create(
+    GDSSessionConfig(
+        name="analysis",
+        memory=estimate.recommended_size,
+        ttl="1h",
+        tenant_id="6981ace7-efe8-4f5c-b7c5-267b5162ce91",
+        cloud_provider=CloudProvider.GCP,
+        region="europe-west1",
+    )
+)
+sessions = client.graph_analytics.list(tenant_id=session.tenant_id)
+client.graph_analytics.delete(session.id)
+```
+
+## Prometheus metrics
+
+Get a metrics endpoint from `tenants.get_metrics_integration()` or from an instance's
+`metrics_integration_url`. The client sends its Aura token to that endpoint, so only
+`https://*.neo4j.io` URLs are accepted.
+
+```python
+instance = client.instances.get("2f49c2b3")
+url = instance.metrics_integration_url
+
+metrics = client.prometheus.fetch_raw_metrics(url)
+cpu = client.prometheus.get_metric_value(
+    metrics, "neo4j_aura_cpu_usage", {"instance_mode": "PRIMARY"}
+)
+
+health = client.prometheus.get_instance_health(instance.id, url)
+print(health.overall_status, health.issues, health.recommendations)
+```
+
+`get_metric_value` averages every matching sample, and raises `MetricNotFoundError` if nothing
+matches. `get_instance_health` uses the Go SDK's metrics and thresholds. A metric the endpoint
+doesn't report comes back as `None`, not `0`.
+
+## Error handling
+
+Every exception derives from `AuraError`:
+
+```text
+AuraError
+├── AuraConfigurationError   (ValueError)  bad client options
+├── AuraValidationError      (ValueError)  bad arguments; nothing was sent
+├── AuraConnectionError                    network failure after retries
+│   └── AuraTimeoutError
+├── AuraResponseError                      oversized or malformed response
+├── MetricNotFoundError      (LookupError)
+└── AuraAPIError                           non-2xx response
+    ├── BadRequestError         400
+    ├── AuthenticationError     401, or rejected credentials
+    ├── PermissionDeniedError   403
+    ├── NotFoundError           404
+    ├── ConflictError           409
+    ├── RateLimitError          429  (.retry_after in seconds)
+    └── ServerError             5xx
+```
+
+```python
+try:
+    client.instances.get("2f49c2b3")
+except aura.NotFoundError:
+    print("no such instance")
+except aura.AuraAPIError as err:
+    print(err.status_code, err.message, err.request_id)
+    for detail in err.details:
+        print(detail.reason, detail.field, detail.message)
+```
+
+`AuraAPIError` also provides the Go SDK's helpers: `is_not_found`, `is_unauthorized`,
+`is_bad_request`, `has_multiple_errors` and `all_errors()`.
+
+## Logging
+
+The SDK logs through the standard `logging` module under the `aura_python_sdk` logger, and
+emits nothing unless your application configures logging. Requests are logged at `DEBUG`, and
+started mutations (create, delete, pause and so on) at `INFO`. Credentials, tokens and passwords
+are never logged.
+
+```python
+logging.basicConfig()
+logging.getLogger("aura_python_sdk").setLevel(logging.DEBUG)
+```
+
+## Custom transports and testing
+
+Pass any object with `send(request) -> HttpResponse` and `close()` as `transport=`. For
+`AsyncAuraClient`, pass one with `async send()` and `async aclose()`. Each client rejects the
+other kind. This is the
+equivalent of the Go SDK's `WithHTTPClient`. The SDK's retries, auth and error mapping still
+apply on top. A client never closes a transport it didn't create.
+
+```python
+from aura_python_sdk import AuraClient, HttpRequest, HttpResponse
+
+
+class RecordingTransport:
+    def __init__(self, responses: list[HttpResponse]) -> None:
+        self.responses = responses
+        self.requests: list[HttpRequest] = []
+
+    def send(self, request: HttpRequest) -> HttpResponse:
+        self.requests.append(request)
+        return self.responses.pop(0)
+
+    def close(self) -> None:
+        pass
+```
+
+For a network failure, a transport should raise `AuraConnectionError` or `AuraTimeoutError`. Set
+`request_sent=False` only when the server certainly never received the request, because that
+decides whether a `POST` is retried.
+
+## Coming from the Go SDK
+
+| Go | Python |
+| --- | --- |
+| `aura.NewClient(aura.WithCredentials(id, secret), aura.WithTimeout(t))` | `aura.AuraClient(client_id=id, client_secret=secret, timeout=t)` |
+| `defer client.Close()` | `with aura.AuraClient(...) as client:` |
+| goroutines with a shared client | `AsyncAuraClient` with `asyncio.gather` |
+| `client.Instances.List(ctx)` returning `resp.Data` | `client.instances.list()` returns the list |
+| `aura.IsNotFound(err)` | `except aura.NotFoundError:` |
+| `aura.WithHTTPClient(c)` | `transport=` |
+| `aura.WithInsecureBaseURL(u)` | `base_url=u, allow_insecure_base_url=True` |
+| `client.Tenants.GetMetrics` | `client.tenants.get_metrics_integration` |
+| `client.GraphAnalytics.Estimate` | `client.graph_analytics.estimate_size` |
+| `SnapshotDate` / `aura.Today()` | `datetime.date` / omit it for today |
+
+Python additions: sizing and upgrade for instances; get, create and delete for customer-managed
+keys; list filters; and the full set of `update` fields. The design notes are in
+[PLAN.md](PLAN.md).
+
+## Examples
+
+[examples/](examples/) contains ports of the Go SDK's v1 examples. Each one reads
+`AURA_CLIENT_ID` and `AURA_CLIENT_SECRET` from the environment:
+
+```sh
+uv run python examples/list_instances.py
+```
 
 ## Development
 
@@ -13,5 +371,21 @@ Requires Python 3.11+.
 uv sync --all-extras
 uv run ruff format && uv run ruff check
 uv run mypy
-uv run pytest -m "not integration"
+uv run pytest                     # unit and local black-box tests; no network
 ```
+
+The live tests in `tests/integration/` call the real Aura API, and are skipped unless credentials
+are set. They are read-only unless you opt in to creating and deleting an instance:
+
+```sh
+AURA_CLIENT_ID=... AURA_CLIENT_SECRET=... uv run pytest -m integration
+AURA_INTEGRATION_WRITE=1 AURA_TENANT_ID=... uv run pytest -m integration   # also creates/deletes
+```
+
+To release, set `__version__` in `src/aura_python_sdk/_version.py`, add a matching
+`## vX.Y.Z` section to [CHANGELOG.md](CHANGELOG.md), and push the tag `vX.Y.Z`. The release
+workflow runs the tests, builds, publishes to PyPI and creates the GitHub release.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
