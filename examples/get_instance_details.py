@@ -28,7 +28,7 @@ def main() -> int:
     print(f"Status:         {instance.status}")
     print(f"Cloud provider: {instance.cloud_provider} ({instance.region})")
     print(f"Tier:           {instance.type}")
-    print(f"Memory:         {instance.memory}")
+    print(f"Memory:         {instance.memory or 'n/a'}")
     print(f"Storage:        {instance.storage or 'n/a'}")
     print(f"Connection URL: {instance.connection_url or 'n/a'}")
     return 0

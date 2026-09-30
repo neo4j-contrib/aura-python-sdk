@@ -53,7 +53,8 @@ class InstanceSummary:
 class Instance:
     """Full details of an instance.
 
-    ``connection_url`` can be ``None`` (the live API sends null for some instances).
+    ``connection_url`` can be ``None`` (the live API sends null for some instances), and
+    ``memory`` can be ``None`` while an instance is being deleted.
     ``storage`` is not returned for AuraDB Free. ``graph_nodes`` and ``graph_relationships`` are
     returned only for Free instances. ``secondaries_count`` is returned only for Virtual
     Dedicated Cloud, and ``cdc_enrichment_mode`` only for Virtual Dedicated Cloud and Business
@@ -69,7 +70,8 @@ class Instance:
     connection_url: str | None = None
     region: str
     type: InstanceType | str
-    memory: str
+    # Required by the spec, but the live API leaves it out while an instance is being deleted.
+    memory: str | None = None
     storage: str | None = None
     created_at: datetime | None = None
     metrics_integration_url: str | None = None
