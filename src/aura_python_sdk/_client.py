@@ -7,7 +7,7 @@ import logging
 import os
 from collections.abc import Mapping
 from types import TracebackType
-from typing import Self
+from typing import Self, TypedDict, Unpack
 
 from aura_python_sdk._config import (
     API_VERSION,
@@ -44,6 +44,27 @@ ENV_CLIENT_ID = "AURA_CLIENT_ID"
 ENV_CLIENT_SECRET = "AURA_CLIENT_SECRET"  # noqa: S105 - environment variable name, not a secret
 
 _LOGGER_NAME = "aura_python_sdk"
+
+
+class _CommonOptions(TypedDict, total=False):
+    """The keyword options ``from_env`` passes through, so type checkers can check them."""
+
+    base_url: str
+    allow_insecure_base_url: bool
+    timeout: float
+    max_retries: int
+    max_response_size: int
+    user_agent: str
+    default_headers: Mapping[str, str] | None
+    logger: logging.Logger | None
+
+
+class _ClientOptions(_CommonOptions, total=False):
+    transport: HttpTransport | None
+
+
+class _AsyncClientOptions(_CommonOptions, total=False):
+    transport: AsyncHttpTransport | None
 
 
 def _resolve_logger(logger: logging.Logger | None) -> logging.Logger:
@@ -176,13 +197,13 @@ class AuraClient:
         )
 
     @classmethod
-    def from_env(cls, **options: object) -> Self:
+    def from_env(cls, **options: Unpack[_ClientOptions]) -> Self:
         """Build a client with credentials from ``AURA_CLIENT_ID`` and ``AURA_CLIENT_SECRET``.
 
         Any other keyword option is passed through to :class:`AuraClient`.
         """
         client_id, client_secret = _env_credentials()
-        return cls(client_id=client_id, client_secret=client_secret, **options)  # type: ignore[arg-type]
+        return cls(client_id=client_id, client_secret=client_secret, **options)
 
     @property
     def base_url(self) -> str:
@@ -303,10 +324,13 @@ class AsyncAuraClient:
         )
 
     @classmethod
-    def from_env(cls, **options: object) -> Self:
-        """Build a client with credentials from ``AURA_CLIENT_ID`` and ``AURA_CLIENT_SECRET``."""
+    def from_env(cls, **options: Unpack[_AsyncClientOptions]) -> Self:
+        """Build a client with credentials from ``AURA_CLIENT_ID`` and ``AURA_CLIENT_SECRET``.
+
+        Any other keyword option is passed through to :class:`AsyncAuraClient`.
+        """
         client_id, client_secret = _env_credentials()
-        return cls(client_id=client_id, client_secret=client_secret, **options)  # type: ignore[arg-type]
+        return cls(client_id=client_id, client_secret=client_secret, **options)
 
     @property
     def base_url(self) -> str:

@@ -62,6 +62,7 @@ variables:
 
 ```python
 client = aura.AuraClient.from_env()
+client = aura.AuraClient.from_env(timeout=30, max_retries=5)  # any other option, type-checked
 ```
 
 Using the client as a context manager (or calling `client.close()`) releases its pooled

@@ -58,3 +58,5 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
   the median (q50) query latency; the Go SDK's name for it is `AvgLatencyMs`.
 - `AuraConnectionError` is also a `ConnectionError`, and `AuraTimeoutError` is also a
   `TimeoutError`, so generic network error handling catches them.
+- `from_env()` options are now type-checked. A misspelt or wrongly typed option, such as
+  `from_env(timout=5)`, is reported by mypy and pyright instead of failing only at runtime.

@@ -1,10 +1,12 @@
 import base64
 import logging
+import typing
 
 import pytest
 
 import aura_python_sdk as aura
 from aura_python_sdk import AuraClient, AuraConfigurationError
+from aura_python_sdk._client import _AsyncClientOptions, _ClientOptions
 from aura_python_sdk._internal.http._httpx import HttpxTransport
 from tests.fakes import FakeTransport, json_response, token_response
 
@@ -102,6 +104,18 @@ def test_repr_hides_credentials() -> None:
     client = AuraClient(client_id="id-123", client_secret="s3cr3t", transport=FakeTransport())
     assert "s3cr3t" not in repr(client)
     assert repr(client) == "AuraClient(base_url='https://api.neo4j.io')"
+
+
+@pytest.mark.parametrize(
+    ("client_class", "options"),
+    [(aura.AuraClient, _ClientOptions), (aura.AsyncAuraClient, _AsyncClientOptions)],
+)
+def test_from_env_options_match_constructor(client_class: type, options: type) -> None:
+    # from_env's typed options must list every constructor option except the credentials,
+    # with the same types, or type checkers would reject (or miss) a valid option.
+    hints = typing.get_type_hints(vars(client_class)["__init__"])
+    expected = {k: v for k, v in hints.items() if k not in ("client_id", "client_secret", "return")}
+    assert typing.get_type_hints(options) == expected
 
 
 def test_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
