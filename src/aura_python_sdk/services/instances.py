@@ -250,28 +250,49 @@ def _create_body(config: InstanceConfig) -> dict[str, object]:
 
 
 class InstanceService(Service):
-    """AuraDB and AuraDS instances."""
+    """AuraDB and AuraDS instances.
+
+    Each method lists the errors specific to it. The errors any call can raise are listed on
+    :class:`~aura_python_sdk.AuraClient`.
+    """
 
     def list(self, *, tenant_id: str | None = None) -> builtins.list[InstanceSummary]:
-        """Every instance the credentials can access, optionally only those in one tenant."""
+        """Every instance the credentials can access, optionally only those in one tenant.
+
+        Raises:
+            AuraValidationError: ``tenant_id`` is invalid; nothing was sent.
+        """
         return self._run(_list(tenant_id))
 
     def get(self, instance_id: str) -> Instance:
-        """Full details of one instance."""
+        """Full details of one instance.
+
+        Raises:
+            AuraValidationError: ``instance_id`` is invalid; nothing was sent.
+            NotFoundError: The instance doesn't exist.
+        """
         return self._run(_get(instance_id))
 
     def create(self, config: InstanceConfig) -> CreatedInstance:
         """Start creating an instance.
 
-        Creation is asynchronous. Poll :meth:`get` until ``status`` is ``running``. The returned
-        password is shown only once.
+        Creation is asynchronous: :meth:`wait_for_status` waits until the instance is running.
+        The returned password is shown only once.
+
+        Raises:
+            AuraValidationError: A field of ``config`` is invalid; nothing was sent.
         """
         return self._run(_create(config))
 
     def create_from_instance(
         self, config: InstanceConfig, *, source_instance_id: str
     ) -> CreatedInstance:
-        """Create an instance cloned from the current data of another instance."""
+        """Create an instance cloned from the current data of another instance.
+
+        Raises:
+            AuraValidationError: An ID or a field of ``config`` is invalid; nothing was sent.
+            NotFoundError: The source instance doesn't exist.
+        """
         return self._run(_create(config, source_instance_id=source_instance_id))
 
     def create_from_snapshot(
@@ -280,6 +301,10 @@ class InstanceService(Service):
         """Create an instance from a snapshot.
 
         The snapshot must belong to ``source_instance_id`` and be exportable.
+
+        Raises:
+            AuraValidationError: An ID or a field of ``config`` is invalid; nothing was sent.
+            NotFoundError: The source instance or snapshot doesn't exist.
         """
         return self._run(_create(config, source_instance_id, source_snapshot_id))
 
@@ -300,6 +325,10 @@ class InstanceService(Service):
         The update is asynchronous, and the instance stays available throughout.
         ``secondaries_count`` applies only to Virtual Dedicated Cloud, and
         ``cdc_enrichment_mode`` only to Virtual Dedicated Cloud and Business Critical.
+
+        Raises:
+            AuraValidationError: An argument is invalid, or none was given; nothing was sent.
+            NotFoundError: The instance doesn't exist.
         """
         return self._run(
             _update(
@@ -326,6 +355,9 @@ class InstanceService(Service):
 
         Supported for ``enterprise-ds`` and ``professional-ds``. Pass the recommended size as
         ``memory`` when creating the instance.
+
+        Raises:
+            AuraValidationError: An argument is invalid; nothing was sent.
         """
         return self._run(
             _estimate_size(node_count, relationship_count, instance_type, algorithm_categories)
@@ -338,27 +370,57 @@ class InstanceService(Service):
 
         Pass both ``memory`` and ``storage`` to resize as part of the upgrade, or neither to keep
         the current size. Not available for Marketplace projects or trial instances.
+
+        Raises:
+            AuraValidationError: An argument is invalid, or only one size was given; nothing was
+                sent.
+            NotFoundError: The instance doesn't exist.
         """
         return self._run(_upgrade(instance_id, memory, storage))
 
     def delete(self, instance_id: str) -> Instance:
-        """Start deleting an instance. This cannot be undone."""
+        """Start deleting an instance. This cannot be undone.
+
+        Raises:
+            AuraValidationError: ``instance_id`` is invalid; nothing was sent.
+            NotFoundError: The instance doesn't exist.
+        """
         return self._run(_delete(instance_id))
 
     def pause(self, instance_id: str) -> Instance:
-        """Pause a running instance."""
+        """Pause a running instance.
+
+        Raises:
+            AuraValidationError: ``instance_id`` is invalid; nothing was sent.
+            NotFoundError: The instance doesn't exist.
+        """
         return self._run(_lifecycle(instance_id, "pause"))
 
     def resume(self, instance_id: str) -> Instance:
-        """Resume a paused instance."""
+        """Resume a paused instance.
+
+        Raises:
+            AuraValidationError: ``instance_id`` is invalid; nothing was sent.
+            NotFoundError: The instance doesn't exist.
+        """
         return self._run(_lifecycle(instance_id, "resume"))
 
     def overwrite_from_instance(self, instance_id: str, *, source_instance_id: str) -> Instance:
-        """Replace an instance's data with the current data of another instance."""
+        """Replace an instance's data with the current data of another instance.
+
+        Raises:
+            AuraValidationError: An ID is invalid; nothing was sent.
+            NotFoundError: The instance or the source instance doesn't exist.
+        """
         return self._run(_overwrite(instance_id, source_instance_id=source_instance_id))
 
     def overwrite_from_snapshot(self, instance_id: str, *, source_snapshot_id: str) -> Instance:
-        """Replace an instance's data with a snapshot."""
+        """Replace an instance's data with a snapshot.
+
+        Raises:
+            AuraValidationError: An ID is invalid; nothing was sent.
+            NotFoundError: The instance or the snapshot doesn't exist.
+        """
         return self._run(_overwrite(instance_id, source_snapshot_id=source_snapshot_id))
 
     def wait_for_status(

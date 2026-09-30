@@ -6,6 +6,8 @@ from enum import StrEnum
 
 
 class CloudProvider(StrEnum):
+    """Cloud providers Aura runs on."""
+
     GCP = "gcp"
     AWS = "aws"
     AZURE = "azure"

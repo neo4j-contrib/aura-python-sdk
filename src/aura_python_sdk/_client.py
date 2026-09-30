@@ -96,6 +96,12 @@ class AuraClient:
 
     Every option is keyword-only. Invalid options raise :class:`AuraConfigurationError`.
 
+    Besides the errors each method documents, any call can raise :class:`AuthenticationError`
+    (rejected credentials), :class:`PermissionDeniedError`, :class:`RateLimitError`,
+    :class:`ServerError` or another :class:`AuraAPIError`, :class:`AuraConnectionError` or
+    :class:`AuraTimeoutError` (network), :class:`AuraResponseError` (unusable response) and
+    :class:`AuraClientClosedError`. All of them are :class:`AuraError`.
+
     Args:
         client_id: Aura API client ID.
         client_secret: Aura API client secret.
@@ -252,6 +258,7 @@ class AuraClient:
 
     @property
     def base_url(self) -> str:
+        """The API base URL, without the version path or a trailing slash."""
         return self._config.base_url
 
     def close(self) -> None:
@@ -287,7 +294,8 @@ class AsyncAuraClient:
             instances = await client.instances.list()
 
     ``transport`` must be an :class:`AsyncHttpTransport`. Call :meth:`aclose`, or use
-    ``async with``, to release connections.
+    ``async with``, to release connections. Methods raise the same errors as on
+    :class:`AuraClient`.
     """
 
     def __init__(
@@ -417,6 +425,7 @@ class AsyncAuraClient:
 
     @property
     def base_url(self) -> str:
+        """The API base URL, without the version path or a trailing slash."""
         return self._config.base_url
 
     async def aclose(self) -> None:

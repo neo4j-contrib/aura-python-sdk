@@ -140,7 +140,11 @@ def _ready_target(session_id: str) -> Target[GDSSession]:
 
 
 class GDSSessionService(Service):
-    """Graph Analytics (GDS) sessions."""
+    """Graph Analytics (GDS) sessions.
+
+    Each method lists the errors specific to it. The errors any call can raise are listed on
+    :class:`~aura_python_sdk.AuraClient`.
+    """
 
     def list(
         self,
@@ -149,7 +153,11 @@ class GDSSessionService(Service):
         instance_id: str | None = None,
         organization_id: str | None = None,
     ) -> builtins.list[GDSSession]:
-        """Every session the credentials can access, optionally filtered."""
+        """Every session the credentials can access, optionally filtered.
+
+        Raises:
+            AuraValidationError: A filter is invalid; nothing was sent.
+        """
         return self._run(_list(tenant_id, instance_id, organization_id))
 
     def estimate_size(
@@ -162,7 +170,11 @@ class GDSSessionService(Service):
         relationship_property_count: int | None = None,
         algorithm_categories: Sequence[str] | None = None,
     ) -> GDSSessionSizeEstimate:
-        """Estimate the session size needed for a graph (Go: ``Estimate``)."""
+        """Estimate the session size needed for a graph (Go: ``Estimate``).
+
+        Raises:
+            AuraValidationError: An argument is invalid; nothing was sent.
+        """
         return self._run(
             _estimate_size(
                 node_count,
@@ -179,15 +191,28 @@ class GDSSessionService(Service):
 
         Attach it to an instance with ``instance_id`` and ``database_uuid``, or make a standalone
         session with ``cloud_provider`` and ``region``.
+
+        Raises:
+            AuraValidationError: A field of ``config`` is invalid; nothing was sent.
         """
         return self._run(_create(config))
 
     def get(self, session_id: str) -> GDSSession:
-        """Details of one session."""
+        """Details of one session.
+
+        Raises:
+            AuraValidationError: ``session_id`` is invalid; nothing was sent.
+            NotFoundError: The session doesn't exist.
+        """
         return self._run(_get(session_id))
 
     def delete(self, session_id: str) -> DeletedGDSSession:
-        """Delete a session."""
+        """Delete a session.
+
+        Raises:
+            AuraValidationError: ``session_id`` is invalid; nothing was sent.
+            NotFoundError: The session doesn't exist.
+        """
         return self._run(_delete(session_id))
 
     def wait_until_ready(

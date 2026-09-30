@@ -50,6 +50,8 @@ class PrometheusMetrics:
 
 
 class HealthStatus(StrEnum):
+    """The overall health in an :class:`InstanceHealth`: healthy, warning or critical."""
+
     HEALTHY = "healthy"
     WARNING = "warning"
     CRITICAL = "critical"
@@ -57,12 +59,16 @@ class HealthStatus(StrEnum):
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ResourceMetrics:
+    """CPU and heap memory use, as percentages of the instance's limits."""
+
     cpu_usage_percent: float | None = None
     memory_usage_percent: float | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class QueryMetrics:
+    """Query counts and latency, in milliseconds."""
+
     query_execution_total: float | None = None
     # The median (q50) internal query latency. The Go SDK calls this AvgLatencyMs.
     median_latency_ms: float | None = None
@@ -70,6 +76,8 @@ class QueryMetrics:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ConnectionMetrics:
+    """Bolt connections in use, against the instance's limit."""
+
     active_connections: int | None = None
     max_connections: int | None = None
     usage_percent: float | None = None
@@ -77,6 +85,8 @@ class ConnectionMetrics:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class StorageMetrics:
+    """Page cache effectiveness: the hit rate as a percentage."""
+
     page_cache_hit_rate: float | None = None
 
 

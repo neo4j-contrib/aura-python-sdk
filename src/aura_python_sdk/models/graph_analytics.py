@@ -10,6 +10,8 @@ from aura_python_sdk.models._common import CloudProvider
 
 
 class GDSSessionStatus(StrEnum):
+    """Lifecycle states of a Graph Analytics session."""
+
     CREATING = "Creating"
     READY = "Ready"
     EXPIRED = "Expired"

@@ -8,6 +8,8 @@ from enum import StrEnum
 
 
 class SnapshotStatus(StrEnum):
+    """Lifecycle states of a snapshot."""
+
     COMPLETED = "Completed"
     IN_PROGRESS = "InProgress"
     FAILED = "Failed"
@@ -16,6 +18,8 @@ class SnapshotStatus(StrEnum):
 
 
 class SnapshotProfile(StrEnum):
+    """Whether a snapshot was taken on demand or on the schedule."""
+
     AD_HOC = "AdHoc"
     SCHEDULED = "Scheduled"
 

@@ -31,6 +31,8 @@ class InstanceStatus(StrEnum):
 
 
 class CDCEnrichmentMode(StrEnum):
+    """Change data capture enrichment modes (Virtual Dedicated Cloud and Business Critical)."""
+
     OFF = "OFF"
     DIFF = "DIFF"
     FULL = "FULL"

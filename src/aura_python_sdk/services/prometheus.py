@@ -144,6 +144,9 @@ class PrometheusService(Service):
 
     Get an endpoint from ``client.tenants.get_metrics_integration(tenant_id).endpoint`` or
     ``client.instances.get(instance_id).metrics_integration_url``.
+
+    Each method lists the errors specific to it. The errors any call can raise are listed on
+    :class:`~aura_python_sdk.AuraClient`.
     """
 
     def __init__(
@@ -153,7 +156,13 @@ class PrometheusService(Service):
         self._allow_untrusted_urls = allow_untrusted_urls
 
     def fetch_raw_metrics(self, prometheus_url: str) -> PrometheusMetrics:
-        """Fetch and parse every metric from a metrics endpoint."""
+        """Fetch and parse every metric from a metrics endpoint.
+
+        Raises:
+            AuraValidationError: ``prometheus_url`` isn't an ``https://*.neo4j.io`` URL; nothing was
+                sent.
+            AuraResponseError: The response isn't valid Prometheus text.
+        """
         return self._run(_fetch(prometheus_url, allow_untrusted=self._allow_untrusted_urls))
 
     def get_metric_value(
@@ -176,6 +185,10 @@ class PrometheusService(Service):
         """Summarise an instance's CPU, memory, query, connection and page cache metrics.
 
         Uses the same metrics, thresholds and status logic as the Go SDK.
+
+        Raises:
+            AuraValidationError: ``instance_id`` or ``prometheus_url`` is invalid; nothing was sent.
+            AuraResponseError: The response isn't valid Prometheus text.
         """
         instance_id = validate.instance_id(instance_id)
         call = _fetch(prometheus_url, allow_untrusted=self._allow_untrusted_urls)

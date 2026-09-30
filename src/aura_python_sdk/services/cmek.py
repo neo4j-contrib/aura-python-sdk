@@ -85,14 +85,27 @@ def _delete(key_id: str) -> Call[None]:
 
 
 class CMEKService(Service):
-    """Customer-managed encryption keys."""
+    """Customer-managed encryption keys.
+
+    Each method lists the errors specific to it. The errors any call can raise are listed on
+    :class:`~aura_python_sdk.AuraClient`.
+    """
 
     def list(self, *, tenant_id: str | None = None) -> builtins.list[CustomerManagedKeySummary]:
-        """Every key the credentials can access, optionally only those in one tenant."""
+        """Every key the credentials can access, optionally only those in one tenant.
+
+        Raises:
+            AuraValidationError: ``tenant_id`` is invalid; nothing was sent.
+        """
         return self._run(_list(tenant_id))
 
     def get(self, key_id: str) -> CustomerManagedKey:
-        """Full details of one key. ``key_id`` is the Aura key ID, not the cloud provider's."""
+        """Full details of one key. ``key_id`` is the Aura key ID, not the cloud provider's.
+
+        Raises:
+            AuraValidationError: ``key_id`` is invalid; nothing was sent.
+            NotFoundError: The key doesn't exist.
+        """
         return self._run(_get(key_id))
 
     def create(
@@ -109,6 +122,9 @@ class CMEKService(Service):
 
         ``key_id`` is the key's ID in the cloud provider (the key ARN on AWS). The key can then
         encrypt new ``instance_type`` instances in ``region``. It starts in ``pending`` status.
+
+        Raises:
+            AuraValidationError: An argument is invalid; nothing was sent.
         """
         return self._run(
             _create(
@@ -122,7 +138,13 @@ class CMEKService(Service):
         )
 
     def delete(self, key_id: str) -> None:
-        """Delete a key. The API refuses if any instance still uses it."""
+        """Delete a key. The API refuses if any instance still uses it.
+
+        Raises:
+            AuraValidationError: ``key_id`` is invalid; nothing was sent.
+            NotFoundError: The key doesn't exist.
+            AuraAPIError: The key is still used by an instance.
+        """
         self._run(_delete(key_id))
 
 

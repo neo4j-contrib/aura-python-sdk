@@ -72,3 +72,5 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 - A 401 from the API makes the client fetch a new OAuth token and resend the request once, so a
   revoked or rotated token no longer fails the next call. A second 401 still raises
   `AuthenticationError`.
+- Docstrings: every service method lists the errors specific to it, `AuraClient` lists the
+  errors any call can raise, and every exported class has a docstring.

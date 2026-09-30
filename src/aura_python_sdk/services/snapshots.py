@@ -83,22 +83,47 @@ def _completion_target(instance_id: str, snapshot_id: str) -> Target[Snapshot]:
 
 
 class SnapshotService(Service):
-    """Instance snapshots."""
+    """Instance snapshots.
+
+    Each method lists the errors specific to it. The errors any call can raise are listed on
+    :class:`~aura_python_sdk.AuraClient`.
+    """
 
     def list(self, instance_id: str, *, date: dt.date | None = None) -> builtins.list[Snapshot]:
-        """Snapshots of an instance taken on ``date``. The API defaults to today."""
+        """Snapshots of an instance taken on ``date``. The API defaults to today.
+
+        Raises:
+            AuraValidationError: ``instance_id`` is invalid, or ``date`` isn't a ``datetime.date``;
+                nothing was sent.
+            NotFoundError: The instance doesn't exist.
+        """
         return self._run(_list(instance_id, date))
 
     def get(self, instance_id: str, snapshot_id: str) -> Snapshot:
-        """Details of one snapshot."""
+        """Details of one snapshot.
+
+        Raises:
+            AuraValidationError: An ID is invalid; nothing was sent.
+            NotFoundError: The instance or the snapshot doesn't exist.
+        """
         return self._run(_get(instance_id, snapshot_id))
 
     def create(self, instance_id: str) -> CreatedSnapshot:
-        """Start an on-demand snapshot."""
+        """Start an on-demand snapshot.
+
+        Raises:
+            AuraValidationError: ``instance_id`` is invalid; nothing was sent.
+            NotFoundError: The instance doesn't exist.
+        """
         return self._run(_create(instance_id))
 
     def restore(self, instance_id: str, snapshot_id: str) -> Instance:
-        """Restore an instance from one of its own snapshots, replacing its current data."""
+        """Restore an instance from one of its own snapshots, replacing its current data.
+
+        Raises:
+            AuraValidationError: An ID is invalid; nothing was sent.
+            NotFoundError: The instance or the snapshot doesn't exist.
+        """
         return self._run(_restore(instance_id, snapshot_id))
 
     def wait_for_completion(

@@ -43,18 +43,32 @@ def _get_metrics_integration(tenant_id: str) -> Call[MetricsIntegration]:
 
 
 class TenantService(Service):
-    """Tenants (shown as projects in the Aura Console)."""
+    """Tenants (shown as projects in the Aura Console).
+
+    Each method lists the errors specific to it. The errors any call can raise are listed on
+    :class:`~aura_python_sdk.AuraClient`.
+    """
 
     def list(self) -> builtins.list[TenantSummary]:
         """Every tenant the credentials can access."""
         return self._run(_list())
 
     def get(self, tenant_id: str) -> Tenant:
-        """A tenant and the instance configurations it can create."""
+        """A tenant and the instance configurations it can create.
+
+        Raises:
+            AuraValidationError: ``tenant_id`` is invalid; nothing was sent.
+            NotFoundError: The tenant doesn't exist.
+        """
         return self._run(_get(tenant_id))
 
     def get_metrics_integration(self, tenant_id: str) -> MetricsIntegration:
-        """The project-level Prometheus metrics endpoint (Go: ``GetMetrics``)."""
+        """The project-level Prometheus metrics endpoint (Go: ``GetMetrics``).
+
+        Raises:
+            AuraValidationError: ``tenant_id`` is invalid; nothing was sent.
+            NotFoundError: The tenant doesn't exist.
+        """
         return self._run(_get_metrics_integration(tenant_id))
 
 
