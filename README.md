@@ -319,7 +319,7 @@ AuraError
 ├── AuraConnectionError   (ConnectionError) network failure after retries
 │   └── AuraTimeoutError  (TimeoutError)
 ├── AuraClientClosedError (RuntimeError)   the client was used after close()
-├── AuraResponseError                      oversized or malformed response
+├── AuraResponseError                      oversized or malformed response, or HTTPS->HTTP redirect
 ├── OperationFailedError                   a wait_* helper saw the operation fail
 ├── WaitTimeoutError     (TimeoutError)    a wait_* helper gave up; .resource is the last state
 ├── MetricNotFoundError      (LookupError)
@@ -387,6 +387,10 @@ class RecordingTransport:
     def close(self) -> None:
         pass
 ```
+
+If your transport follows redirects, make sure it doesn't send `Authorization` to a different
+origin (httpx and requests both drop it), and refuse a redirect from HTTPS to HTTP. The built-in
+transport does both.
 
 For a network failure, a transport should raise `AuraConnectionError` or `AuraTimeoutError`. Set
 `request_sent=False` only when the server certainly never received the request, because that

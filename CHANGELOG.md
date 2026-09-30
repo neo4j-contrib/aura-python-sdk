@@ -19,6 +19,10 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
   capture them.
 - A deeply nested JSON response raises `AuraResponseError` instead of a raw `RecursionError`
   that `except AuraError` missed.
+- A redirect from HTTPS to HTTP raises `AuraResponseError` instead of being followed. httpx
+  already dropped the token on such a redirect, but still sent the rest of the request, and read
+  the response, in cleartext. Redirects that stay on HTTPS, and `http://` test servers, are
+  unaffected.
 
 ## v0.1.3 - 2026-09-30
 
