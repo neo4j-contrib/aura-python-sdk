@@ -72,14 +72,7 @@ def metric_value(
     """The mean value of ``name`` across samples matching ``label_filters`` (Go semantics)."""
     if not isinstance(metrics, PrometheusMetrics):
         raise AuraValidationError("metrics must be a PrometheusMetrics")
-    samples = metrics.metrics.get(name)
-    if not samples:
-        raise MetricNotFoundError(f"metric {name} not found")
-    filters = dict(label_filters or {})
-    matching = [s for s in samples if all(s.labels.get(k) == v for k, v in filters.items())]
-    if not matching:
-        raise MetricNotFoundError(f"no matching metrics found for {name} with filters {filters}")
-    return sum(s.value for s in matching) / len(matching)
+    return metrics.value(name, **dict(label_filters or {}))
 
 
 def build_health(
@@ -171,7 +164,11 @@ class PrometheusService(Service):
     ) -> float:
         """The mean value of ``name`` across every sample whose labels match ``label_filters``.
 
-        Raises :class:`MetricNotFoundError` if nothing matches.
+        The same as ``metrics.value(name, **label_filters)``, kept for the Go SDK's
+        ``GetMetricValue``.
+
+        Raises:
+            MetricNotFoundError: No sample of ``name`` has these labels.
         """
         return metric_value(metrics, name, label_filters)
 

@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
+from aura_python_sdk._errors import MetricNotFoundError
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class PrometheusMetric:
@@ -27,6 +29,24 @@ class PrometheusMetrics:
     """
 
     metrics: Mapping[str, tuple[PrometheusMetric, ...]] = field(default_factory=dict)
+
+    def value(self, name: str, /, **labels: str) -> float:
+        """The mean value of ``name`` across every sample with these label values.
+
+        ::
+
+            metrics.value("neo4j_aura_cpu_usage", instance_mode="PRIMARY")
+
+        Raises:
+            MetricNotFoundError: No sample of ``name`` has these labels.
+        """
+        samples = self.metrics.get(name)
+        if not samples:
+            raise MetricNotFoundError(f"metric {name} not found")
+        matching = [s for s in samples if all(s.labels.get(k) == v for k, v in labels.items())]
+        if not matching:
+            raise MetricNotFoundError(f"no matching metrics found for {name} with filters {labels}")
+        return sum(s.value for s in matching) / len(matching)
 
 
 class HealthStatus(StrEnum):

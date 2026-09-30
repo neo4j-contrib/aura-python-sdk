@@ -22,6 +22,9 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 - Wait helpers for asynchronous operations: `instances.wait_for_status()`,
   `snapshots.wait_for_completion()` and `graph_analytics.wait_until_ready()`, on both clients.
   They raise `OperationFailedError` on a failed state and `WaitTimeoutError` at the timeout.
+- `PrometheusMetrics.value(name, **labels)`, for example
+  `metrics.value("neo4j_aura_cpu_usage", instance_mode="PRIMARY")`.
+  `prometheus.get_metric_value()` remains as the Go-style equivalent.
 - `with_options(timeout=..., max_retries=...)` on both clients, for a copy with different
   settings that shares the connections and OAuth token.
 - Frozen dataclass models and `StrEnum`s that tolerate values the SDK doesn't know yet.

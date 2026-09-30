@@ -160,9 +160,8 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-Use `async with` or `await client.aclose()` to release connections. `prometheus.get_metric_value`
-does no I/O, so it is a plain method on both clients. A custom transport for the async client
-implements `AsyncHttpTransport` (`async send()` and `async aclose()`).
+Use `async with` or `await client.aclose()` to release connections. A custom transport for the
+async client implements `AsyncHttpTransport` (`async send()` and `async aclose()`).
 
 ## Tenants
 
@@ -301,16 +300,15 @@ instance = client.instances.get("2f49c2b3")
 url = instance.metrics_integration_url
 
 metrics = client.prometheus.fetch_raw_metrics(url)
-cpu = client.prometheus.get_metric_value(
-    metrics, "neo4j_aura_cpu_usage", {"instance_mode": "PRIMARY"}
-)
+cpu = metrics.value("neo4j_aura_cpu_usage", instance_mode="PRIMARY")
 
 health = client.prometheus.get_instance_health(instance.id, url)
 print(health.overall_status, health.issues, health.recommendations)
 ```
 
-`get_metric_value` averages every matching sample, and raises `MetricNotFoundError` if nothing
-matches. `get_instance_health` uses the Go SDK's metrics and thresholds. A metric the endpoint
+`metrics.value()` averages every sample with the given label values, and raises
+`MetricNotFoundError` if nothing matches. `client.prometheus.get_metric_value(metrics, name,
+labels)` does the same, for code ported from the Go SDK. `get_instance_health` uses the Go SDK's metrics and thresholds. A metric the endpoint
 doesn't report comes back as `None`, not `0`.
 
 ## Error handling

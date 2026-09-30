@@ -134,6 +134,29 @@ def test_get_metric_value_not_found(api: Api) -> None:
     assert issubclass(MetricNotFoundError, LookupError)
 
 
+def test_metrics_value_takes_labels_as_keywords() -> None:
+    metrics = _metrics(
+        cpu=[
+            ({"zone": "a", "mode": "PRIMARY"}, 1.0),
+            ({"zone": "b", "mode": "PRIMARY"}, 3.0),
+            ({"zone": "a", "mode": "SECONDARY"}, 5.0),
+        ]
+    )
+    assert metrics.value("cpu") == 3.0
+    assert metrics.value("cpu", mode="PRIMARY") == 2.0
+    assert metrics.value("cpu", zone="a", mode="SECONDARY") == 5.0
+    with pytest.raises(MetricNotFoundError, match="no matching metrics"):
+        metrics.value("cpu", zone="z")
+    with pytest.raises(MetricNotFoundError, match="metric memory not found"):
+        metrics.value("memory")
+
+
+def test_metrics_value_allows_a_label_called_name() -> None:
+    # The metric name is positional-only, so a "name" label doesn't clash with it.
+    metrics = _metrics(up=[({"name": "db1"}, 1.0), ({"name": "db2"}, 0.0)])
+    assert metrics.value("up", name="db2") == 0.0
+
+
 def test_get_metric_value_requires_metrics(api: Api) -> None:
     with pytest.raises(AuraValidationError, match="PrometheusMetrics"):
         api.client.prometheus.get_metric_value({"cpu": []}, "cpu")  # type: ignore[arg-type]
