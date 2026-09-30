@@ -475,12 +475,14 @@ clone before importing the package. Between tags, `__version__` has a local suff
 Releases are published to [PyPI](https://pypi.org/project/aura-python-sdk/). There is no
 version number to edit:
 
-1. Merge the changes to `main`.
-2. On `main`, add a `## vX.Y.Z` section to [CHANGELOG.md](CHANGELOG.md), and commit and push
-   it. That section becomes the GitHub release notes.
-3. Tag the commit and push the tag:
+1. In the pull request, rename the `## Unreleased` section of [CHANGELOG.md](CHANGELOG.md) to
+   `## vX.Y.Z - YYYY-MM-DD`, and add a new, empty `## Unreleased` above it. That section becomes
+   the GitHub release notes.
+2. Merge the pull request.
+3. Tag the merge commit on `main` and push the tag:
 
    ```sh
+   git switch main && git pull
    git tag v0.2.0
    git push origin v0.2.0
    ```
