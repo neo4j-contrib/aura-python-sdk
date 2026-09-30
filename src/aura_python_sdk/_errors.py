@@ -204,7 +204,7 @@ def api_error_from_response(
             message,
             details,
             request_id=request_id,
-            retry_after=_parse_retry_after(headers.get("retry-after")),
+            retry_after=parse_retry_after(headers.get("retry-after")),
         )
     if error_class is None:
         error_class = _STATUS_TO_ERROR.get(status_code)
@@ -258,7 +258,7 @@ def _optional_str(value: object) -> str | None:
     return value if isinstance(value, str) else None
 
 
-def _parse_retry_after(value: str | None) -> float | None:
+def parse_retry_after(value: str | None) -> float | None:
     """Retry-After is either delta-seconds or an HTTP date."""
     if not value:
         return None

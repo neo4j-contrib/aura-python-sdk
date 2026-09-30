@@ -22,8 +22,9 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 - Frozen dataclass models and `StrEnum`s that tolerate values the SDK doesn't know yet.
 - An exception class per error: `NotFoundError`, `RateLimitError` (with `retry_after`) and others.
 - A pluggable `HttpTransport`, with an httpx implementation as the default.
-- Only network failures are retried, and a non-idempotent request is never re-sent once it may
-  have reached the server.
+- Retries for network failures, and for 429, 502, 503 and 504 responses to idempotent requests
+  (honouring `Retry-After`). A non-idempotent request is never re-sent once it may have reached
+  the server. The Go SDK retries network failures only.
 - A stdlib Prometheus text-format parser whose output matches the Go SDK, and
   `get_instance_health` with the Go SDK's thresholds.
 

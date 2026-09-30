@@ -103,8 +103,9 @@ class AuraClient:
             ``https://*.neo4j.io``. Only for local test servers, because credentials would be sent
             in cleartext.
         timeout: Seconds allowed for each API call, covering the token fetch, retries and backoff.
-        max_retries: How many times to retry after a network failure. Responses with an HTTP
-            status are never retried.
+        max_retries: How many times to retry after a network failure, or after a 429, 502, 503
+            or 504 response to an idempotent request (``GET``, ``PUT``, ``DELETE``). ``POST`` and
+            ``PATCH`` are retried only when the request was never sent.
         max_response_size: Largest response body accepted, in bytes.
         user_agent: Overrides the ``User-Agent`` header.
         default_headers: Extra headers sent with every API request. ``Authorization``,

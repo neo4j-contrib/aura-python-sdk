@@ -110,7 +110,8 @@ def test_rejected_credentials(fake_aura: FakeAura) -> None:
     assert fake_aura.api_requests() == []
 
 
-def test_rate_limit_is_not_retried(fake_aura: FakeAura) -> None:
+def test_rate_limit_past_the_deadline_is_raised(fake_aura: FakeAura) -> None:
+    # Retry-After (7 s) is longer than the 5 s timeout, so the client doesn't wait.
     fake_aura.route(
         "GET",
         "/v1/tenants",
@@ -119,6 +120,26 @@ def test_rate_limit_is_not_retried(fake_aura: FakeAura) -> None:
     with fake_aura.client() as client, pytest.raises(aura.RateLimitError) as info:
         client.tenants.list()
     assert info.value.retry_after == 7.0
+    assert len(fake_aura.api_requests()) == 1
+
+
+def test_service_unavailable_is_retried_for_get(fake_aura: FakeAura) -> None:
+    replies = iter(
+        [
+            Reply.json(503, {"error": "unavailable"}, **{"Retry-After": "0"}),
+            Reply.json(200, {"data": []}),
+        ]
+    )
+    fake_aura.route("GET", "/v1/tenants", lambda _: next(replies))
+    with fake_aura.client() as client:
+        assert client.tenants.list() == []
+    assert len(fake_aura.api_requests()) == 2
+
+
+def test_service_unavailable_is_not_retried_for_post(fake_aura: FakeAura) -> None:
+    fake_aura.route("POST", "/v1/instances/abcd1234/pause", Reply.json(503, {"error": "busy"}))
+    with fake_aura.client() as client, pytest.raises(aura.ServerError):
+        client.instances.pause("abcd1234")
     assert len(fake_aura.api_requests()) == 1
 
 

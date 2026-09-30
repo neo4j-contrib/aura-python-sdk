@@ -79,7 +79,7 @@ client = aura.AuraClient(
     client_id="...",
     client_secret="...",
     timeout=60,  # seconds per call (default 120)
-    max_retries=5,  # network-failure retries (default 3)
+    max_retries=5,  # retries after a network failure or a 429/502/503/504 (default 3)
     max_response_size=20 * 1024 * 1024,  # bytes (default 10 MB)
     base_url="https://api.staging.neo4j.io",
     user_agent="my-app/1.0",  # default "aura-python-sdk/<version>"
@@ -106,10 +106,19 @@ client = aura.AuraClient(
 `timeout` is one deadline for the whole call, covering the OAuth token fetch, every retry and
 every backoff. This matches the per-call `context.WithTimeout` in the Go SDK.
 
-Only network failures are retried, with backoff from 1 s doubling to 5 s. A response with an HTTP
-status, including 429 and 5xx, is never retried. If a request might already have reached the
-server (a read timeout or a dropped connection), only idempotent methods (`GET`, `PUT`, `DELETE`)
-are retried. That means a `create` or `pause` is never sent twice.
+Retries use backoff from 1 s doubling to 5 s, and stop at `max_retries` or when the next wait
+would pass the deadline. Two things are retried:
+
+- **Network failures.** If the request might already have reached the server (a read timeout or
+  a dropped connection), only idempotent methods (`GET`, `PUT`, `DELETE`) are retried, so a
+  `create` or `pause` is never sent twice. A failure before the request was sent (DNS, connect)
+  is retried for every method.
+- **429, 502, 503 and 504 responses, for idempotent methods only.** The client waits for the
+  server's `Retry-After` when it sends one. If that wait would pass the deadline, it raises
+  straight away, and `RateLimitError.retry_after` tells you how long the server asked for.
+
+Any other response, including a 500, raises its error without a retry. The Go SDK never retries
+a response; this follows other Python SDKs, such as stripe and openai, instead.
 
 If the API rejects the cached OAuth token with a 401 (for example because it was revoked), the
 client fetches a new token and sends the request once more. The API rejected the first attempt

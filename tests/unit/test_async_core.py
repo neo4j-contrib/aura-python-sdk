@@ -47,6 +47,19 @@ async def test_retries_network_errors_with_backoff() -> None:
     assert clock.sleeps == [1.0, 2.0]
 
 
+async def test_retryable_status_retried_for_get_only() -> None:
+    clock = FakeClock()
+    transport = FakeAsyncTransport([HttpResponse(503, {"Retry-After": "3"}), HttpResponse(200)])
+    response = await _http(transport, clock).send("GET", URL, {}, None, deadline=clock.now + 60)
+    assert response.status_code == 200
+    assert clock.sleeps == [3.0]
+
+    transport = FakeAsyncTransport([HttpResponse(503)])
+    response = await _http(transport, clock).send("POST", URL, {}, b"{}", deadline=clock.now + 60)
+    assert response.status_code == 503
+    assert len(transport.requests) == 1
+
+
 async def test_post_not_retried_once_sent() -> None:
     clock = FakeClock()
     transport = FakeAsyncTransport([AuraConnectionError("reset", request_sent=True)])
