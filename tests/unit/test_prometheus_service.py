@@ -148,7 +148,7 @@ def test_get_instance_health_healthy(api: Api) -> None:
     assert health.resources.cpu_usage_percent == pytest.approx(25.0)  # mean 1.0 of 4 cores
     assert health.resources.memory_usage_percent == pytest.approx(42.0)
     assert health.query.query_execution_total == 1200
-    assert health.query.avg_latency_ms == 3.5
+    assert health.query.median_latency_ms == 3.5
     assert health.connections == ConnectionMetrics(
         active_connections=15, max_connections=100, usage_percent=15.0
     )

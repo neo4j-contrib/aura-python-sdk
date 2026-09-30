@@ -357,6 +357,7 @@ decides whether a `POST` is retried.
 | `client.Tenants.GetMetrics` | `client.tenants.get_metrics_integration` |
 | `client.GraphAnalytics.Estimate` | `client.graph_analytics.estimate_size` |
 | `SnapshotDate` / `aura.Today()` | `datetime.date` / omit it for today |
+| `PrometheusHealthMetrics.Query.AvgLatencyMs` (the q50 median) | `InstanceHealth.query.median_latency_ms` |
 
 Python additions: sizing and upgrade for instances; get, create and delete for customer-managed
 keys; list filters; and the full set of `update` fields. The design notes are in

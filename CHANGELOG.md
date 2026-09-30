@@ -47,3 +47,5 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
   first, as in `create(config)`.
 - **Breaking:** list filters are keyword-only in every service: `instances.list(tenant_id=...)`,
   `cmek.list(tenant_id=...)` and `snapshots.list(instance_id, date=...)`.
+- **Breaking:** `QueryMetrics.avg_latency_ms` is renamed `median_latency_ms`. It has always held
+  the median (q50) query latency; the Go SDK's name for it is `AvgLatencyMs`.

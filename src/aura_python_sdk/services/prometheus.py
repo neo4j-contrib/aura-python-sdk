@@ -108,7 +108,7 @@ def build_health(
 
     query = QueryMetrics(
         query_execution_total=value("neo4j_db_query_execution_success_total"),
-        avg_latency_ms=value("neo4j_db_query_execution_internal_latency_q50"),
+        median_latency_ms=value("neo4j_db_query_execution_internal_latency_q50"),
     )
 
     idle = value("neo4j_dbms_bolt_connections_idle")

@@ -44,8 +44,8 @@ class ResourceMetrics:
 @dataclass(frozen=True, slots=True, kw_only=True)
 class QueryMetrics:
     query_execution_total: float | None = None
-    # The median (q50) internal query latency, which the Go SDK labels as the average.
-    avg_latency_ms: float | None = None
+    # The median (q50) internal query latency. The Go SDK calls this AvgLatencyMs.
+    median_latency_ms: float | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
