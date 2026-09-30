@@ -38,14 +38,9 @@ You need an Aura API client ID and secret. See
 
 Requires Python 3.11 or later.
 
-The SDK is not on PyPI yet. Releases are published to
-[TestPyPI](https://test.pypi.org/project/aura-python-sdk/):
-
 ```sh
-pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ aura-python-sdk
+pip install aura-python-sdk
 ```
-
-`--extra-index-url` lets pip fetch `httpx` from PyPI, since TestPyPI does not carry it.
 
 ## Quick start
 
@@ -471,7 +466,8 @@ clone before importing the package. Between tags, `__version__` has a local suff
 
 ### Releasing
 
-Releases are published to TestPyPI only for now. There is no version number to edit:
+Releases are published to [PyPI](https://pypi.org/project/aura-python-sdk/). There is no
+version number to edit:
 
 1. Merge the changes to `main`.
 2. On `main`, add a `## vX.Y.Z` section to [CHANGELOG.md](CHANGELOG.md), and commit and push
@@ -479,8 +475,8 @@ Releases are published to TestPyPI only for now. There is no version number to e
 3. Tag the commit and push the tag:
 
    ```sh
-   git tag v0.1.0.dev1
-   git push origin v0.1.0.dev1
+   git tag v0.2.0
+   git push origin v0.2.0
    ```
 
 The tag must be `v` followed by a
@@ -490,9 +486,13 @@ if the built version does not match the tag. Tags containing `dev`, `a`, `b` or 
 GitHub pre-releases.
 
 Pushing the tag runs [the release workflow](.github/workflows/release.yml). It runs the lint,
-type and test checks, builds the package, publishes to TestPyPI and creates the GitHub release.
-TestPyPI never accepts the same version twice, so a fix needs a new tag. Re-running the
-workflow for an existing tag leaves the uploaded files unchanged.
+type and test checks and builds the package. It then publishes to TestPyPI as a rehearsal,
+publishes to PyPI (through the `pypi` environment, which can require approval), and creates the
+GitHub release. Both indexes use trusted publishing, so no API token is stored anywhere.
+
+Every tag is published to PyPI, pre-releases included; pip only installs a pre-release when
+asked for it (`pip install --pre`). PyPI never accepts the same version twice, so a fix needs a
+new tag.
 
 ## License
 
