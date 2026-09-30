@@ -8,6 +8,13 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 
 ## Unreleased
 
+### Changed
+
+- Releases are published to PyPI: install with `pip install aura-python-sdk`. The README no
+  longer points at TestPyPI, and its old install command, which mixed TestPyPI and PyPI with
+  `--extra-index-url`, is gone. The release workflow still uploads to TestPyPI first as a
+  rehearsal, and both indexes use trusted publishing.
+
 ## v0.1.2 - 2026-09-30
 
 No changes to the package's code or API; this release updates the documentation and the
