@@ -1,3 +1,4 @@
+import base64
 import logging
 
 import pytest
@@ -121,3 +122,17 @@ def test_secrets_never_logged(caplog: pytest.LogCaptureFixture) -> None:
     assert caplog.records
     assert "s3cr3t" not in text
     assert "tok-value" not in text
+
+
+def test_request_repr_hides_credentials() -> None:
+    # A custom transport that logs its requests must not write credentials to the log.
+    transport = FakeTransport([token_response("tok-value"), json_response(200, {})])
+    client = AuraClient(client_id="id", client_secret="s3cr3t", transport=transport)
+    client._api.get("instances")
+    token_request, api_request = transport.requests
+    basic = base64.b64encode(b"id:s3cr3t").decode()
+    assert basic in token_request.headers["Authorization"]
+    assert basic not in repr(token_request)
+    assert "tok-value" not in repr(api_request)
+    assert "'Authorization': '***'" in repr(api_request)
+    assert "'User-Agent'" in repr(api_request)

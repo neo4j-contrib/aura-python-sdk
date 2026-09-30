@@ -343,6 +343,10 @@ For a network failure, a transport should raise `AuraConnectionError` or `AuraTi
 `request_sent=False` only when the server certainly never received the request, because that
 decides whether a `POST` is retried.
 
+`repr(request)` is safe to log: it replaces the `Authorization` value with `***` and shows only
+the body's length. `request.headers` still holds the real values, which the transport needs to
+send.
+
 ## Coming from the Go SDK
 
 | Go | Python |

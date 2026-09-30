@@ -31,6 +31,9 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 
 - `Instance.connection_url` is now optional. The live API returns `null` for some instances,
   although the spec marks the field as required, and that made `instances.get()` fail.
+- `repr(HttpRequest)` no longer shows the bearer token or the Basic-auth client credentials, so
+  a custom transport can log its requests safely. It now shows `***` for the `Authorization`
+  value and only the body's length.
 
 ### Changed
 
