@@ -382,9 +382,9 @@ AURA_CLIENT_ID=... AURA_CLIENT_SECRET=... uv run pytest -m integration
 AURA_INTEGRATION_WRITE=1 AURA_TENANT_ID=... uv run pytest -m integration   # also creates/deletes
 ```
 
-To release, set `__version__` in `src/aura_python_sdk/_version.py`, add a matching
-`## vX.Y.Z` section to [CHANGELOG.md](CHANGELOG.md), and push the tag `vX.Y.Z`. The release
-workflow runs the tests, builds, publishes to PyPI and creates the GitHub release.
+To release, add a `## vX.Y.Z` section to [CHANGELOG.md](CHANGELOG.md), then tag and push
+`vX.Y.Z`. The version comes from the tag, so there is nothing else to edit. The release
+workflow runs the tests, builds, publishes to TestPyPI and creates the GitHub release.
 
 ## License
 
