@@ -5,11 +5,13 @@ Skipped unless AURA_CLIENT_ID and AURA_CLIENT_SECRET are set. Run them with:
     uv run pytest -m integration
 
 The tests only read unless AURA_INTEGRATION_WRITE=1 and AURA_TENANT_ID are also set. Then
-test_create_pause_resume_delete creates a free instance, pauses and resumes it, and deletes it.
+test_create_pause_resume_delete creates the smallest AuraDB Professional instance, pauses and
+resumes it, and deletes it. That runs for a few minutes and is billed.
 """
 
 from __future__ import annotations
 
+import contextlib
 import os
 from collections.abc import Callable, Iterator
 
@@ -95,33 +97,54 @@ def test_bad_credentials_are_rejected() -> None:
 @pytest.mark.skipif(
     not (WRITES_ENABLED and TENANT_ID), reason="needs AURA_INTEGRATION_WRITE=1 and AURA_TENANT_ID"
 )
-def test_create_pause_resume_delete(client: aura.AuraClient) -> None:
-    # A tenant can have only one free instance; creating a second fails with 402.
-    for summary in client.instances.list(tenant_id=TENANT_ID):
-        if client.instances.get(summary.id).type == aura.InstanceType.FREE_DB:
-            pytest.skip(f"tenant already has a free instance ({summary.id}); delete it to run this")
-    created = client.instances.create(
-        aura.InstanceConfig(
-            name="aura-python-sdk-it",
-            tenant_id=TENANT_ID,
-            cloud_provider=aura.CloudProvider.GCP,
-            region="europe-west1",
-            type=aura.InstanceType.FREE_DB,
-            version="5",
-            memory="1GB",
-        )
+def _smallest_pro_config(client: aura.AuraClient) -> aura.InstanceConfig:
+    """The cheapest AuraDB Professional configuration the tenant offers, preferring GCP."""
+    offered = [
+        c
+        for c in client.tenants.get(TENANT_ID).instance_configurations
+        if c.type == aura.InstanceType.PROFESSIONAL_DB
+    ]
+    if not offered:
+        pytest.skip("the tenant can't create AuraDB Professional instances")
+
+    def cost(c: aura.InstanceConfiguration) -> tuple[float, bool, bool]:
+        memory_gb = float(c.memory.removesuffix("GB"))  # the API offers sizes like "1GB"
+        return (memory_gb, c.cloud_provider != "gcp", c.region != "europe-west1")
+
+    chosen = min(offered, key=cost)
+    return aura.InstanceConfig(
+        name="aura-python-sdk-it",
+        tenant_id=TENANT_ID,
+        cloud_provider=chosen.cloud_provider,
+        region=chosen.region,
+        type=aura.InstanceType.PROFESSIONAL_DB,
+        version=chosen.version,
+        memory=chosen.memory,
     )
+
+
+def test_create_pause_resume_delete(client: aura.AuraClient) -> None:
+    # Uses the smallest AuraDB Professional instance: the free tier can't be paused. It runs for
+    # a few minutes, so the cost is small.
+    created = client.instances.create(_smallest_pro_config(client))
+    deleted = False
     try:
         # Exercises the wait helper, including its tolerance of a new instance's early 404s.
         running = client.instances.wait_for_status(created.id)
-        assert running.status == aura.InstanceStatus.RUNNING
+        assert running.connection_url
         client.instances.pause(created.id)
-        paused = client.instances.wait_for_status(created.id, status=aura.InstanceStatus.PAUSED)
-        assert paused.status == aura.InstanceStatus.PAUSED
+        client.instances.wait_for_status(created.id, status=aura.InstanceStatus.PAUSED)
         client.instances.resume(created.id)
-        client.instances.wait_for_status(created.id)
-    finally:
+        client.instances.wait_for_status(created.id, status=aura.InstanceStatus.RUNNING)
         client.instances.delete(created.id)
+        deleted = True
+        # While it is torn down the API may leave fields such as memory out; get() must still
+        # parse it (or report it gone).
+        with contextlib.suppress(aura.NotFoundError):
+            client.instances.get(created.id)
+    finally:
+        if not deleted:
+            client.instances.delete(created.id)
 
 
 @pytest.mark.anyio
