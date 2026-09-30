@@ -47,6 +47,9 @@ class ApiResponse:
             return json.loads(self.body)
         except ValueError as exc:
             raise AuraResponseError("response body is not valid JSON") from exc
+        except RecursionError:
+            # Deeply nested arrays or objects exhaust the parser's stack.
+            raise AuraResponseError("response body is nested too deeply") from None
 
 
 class _Requests:

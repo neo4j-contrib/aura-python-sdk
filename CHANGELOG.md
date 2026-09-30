@@ -17,6 +17,8 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 - The SDK's internal token and configuration objects keep the access token and
   `default_headers` out of their `repr`, so crash reporters that record local variables don't
   capture them.
+- A deeply nested JSON response raises `AuraResponseError` instead of a raw `RecursionError`
+  that `except AuraError` missed.
 
 ## v0.1.3 - 2026-09-30
 

@@ -11,7 +11,7 @@ from aura_python_sdk import (
     NotFoundError,
 )
 from aura_python_sdk._internal._auth import TokenManager
-from aura_python_sdk._internal._request import RequestService, build_path
+from aura_python_sdk._internal._request import ApiResponse, RequestService, build_path
 from aura_python_sdk._internal.http._service import HttpService
 from tests.fakes import FakeClock, FakeTransport, json_response, token_response
 
@@ -213,3 +213,9 @@ def test_build_path_rejects_dot_segments(segment: str) -> None:
 def test_build_path_allows_dots_inside_a_segment() -> None:
     assert build_path("sessions", "a..b") == "sessions/a..b"
     assert build_path("sessions", "...") == "sessions/..."
+
+
+def test_response_json_too_deeply_nested() -> None:
+    body = b"[" * 200_000 + b"]" * 200_000  # well under the 10 MB response limit
+    with pytest.raises(AuraResponseError, match="nested too deeply"):
+        ApiResponse(200, {}, body).json()
