@@ -8,6 +8,18 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 
 ## Unreleased
 
+## v0.1.2 - 2026-09-30
+
+No changes to the package's code or API; this release updates the documentation and the
+release tooling.
+
+### Changed
+
+- The README's install command no longer needs `--pre`, because releases are no longer
+  pre-releases. Its examples use made-up tenant and instance IDs.
+- The CI and release workflows use current GitHub Actions versions, which run on Node.js 24
+  instead of the deprecated Node.js 20.
+
 ## v0.1.1 - 2026-09-30
 
 The first release, published to TestPyPI.
