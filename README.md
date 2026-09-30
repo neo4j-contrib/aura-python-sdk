@@ -38,15 +38,14 @@ You need an Aura API client ID and secret. See
 
 Requires Python 3.11 or later.
 
-The SDK is not on PyPI yet. Pre-release builds are published to
+The SDK is not on PyPI yet. Releases are published to
 [TestPyPI](https://test.pypi.org/project/aura-python-sdk/):
 
 ```sh
-pip install --pre -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ aura-python-sdk
+pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ aura-python-sdk
 ```
 
-`--pre` is needed because every release so far is a pre-release. `--extra-index-url` lets pip
-fetch `httpx` from PyPI, since TestPyPI does not carry it.
+`--extra-index-url` lets pip fetch `httpx` from PyPI, since TestPyPI does not carry it.
 
 ## Quick start
 
@@ -111,7 +110,7 @@ To change `timeout` or `max_retries` for some calls only, use `with_options()`. 
 copy of the client that shares its connections and OAuth token, so it's cheap to call each time:
 
 ```python
-instance = client.with_options(timeout=5).instances.get("2f49c2b3")
+instance = client.with_options(timeout=5).instances.get("a1b2c3d4")
 
 patient = client.with_options(timeout=600, max_retries=10)
 patient.instances.list()
@@ -170,7 +169,7 @@ async client implements `AsyncHttpTransport` (`async send()` and `async aclose()
 for summary in client.tenants.list():
     print(summary.id, summary.name)
 
-tenant = client.tenants.get("6981ace7-efe8-4f5c-b7c5-267b5162ce91")
+tenant = client.tenants.get("11111111-2222-4333-8444-555555555555")
 for config in tenant.instance_configurations:
     print(config.type, config.cloud_provider, config.region, config.memory, config.version)
 
@@ -183,14 +182,14 @@ endpoint = client.tenants.get_metrics_integration(tenant.id).endpoint
 from aura_python_sdk import CloudProvider, InstanceConfig, InstanceStatus, InstanceType
 
 instances = client.instances.list()  # or list(tenant_id=...)
-instance = client.instances.get("2f49c2b3")
+instance = client.instances.get("a1b2c3d4")
 if instance.status == InstanceStatus.RUNNING:
     print(instance.connection_url)
 
 created = client.instances.create(
     InstanceConfig(
         name="my-instance",
-        tenant_id="6981ace7-efe8-4f5c-b7c5-267b5162ce91",
+        tenant_id="11111111-2222-4333-8444-555555555555",
         cloud_provider=CloudProvider.GCP,
         region="europe-west1",
         type=InstanceType.PROFESSIONAL_DB,
@@ -241,12 +240,12 @@ those have finished.
 ```python
 import datetime
 
-snapshots = client.snapshots.list("2f49c2b3")  # today
-snapshots = client.snapshots.list("2f49c2b3", date=datetime.date(2026, 9, 1))
+snapshots = client.snapshots.list("a1b2c3d4")  # today
+snapshots = client.snapshots.list("a1b2c3d4", date=datetime.date(2026, 9, 1))
 
-started = client.snapshots.create("2f49c2b3")
-snapshot = client.snapshots.wait_for_completion("2f49c2b3", started.snapshot_id)
-client.snapshots.restore("2f49c2b3", snapshot.snapshot_id)
+started = client.snapshots.create("a1b2c3d4")
+snapshot = client.snapshots.wait_for_completion("a1b2c3d4", started.snapshot_id)
+client.snapshots.restore("a1b2c3d4", snapshot.snapshot_id)
 ```
 
 `wait_for_completion()` polls until the snapshot is `Completed`, and raises
@@ -259,7 +258,7 @@ keys = client.cmek.list()  # or list(tenant_id=...)
 key = client.cmek.create(
     name="Production Key",
     key_id="arn:aws:kms:us-west-2:111122223333:key/1234abcd-...",
-    tenant_id="6981ace7-efe8-4f5c-b7c5-267b5162ce91",
+    tenant_id="11111111-2222-4333-8444-555555555555",
     cloud_provider=CloudProvider.AWS,
     region="us-west-2",
     instance_type=InstanceType.ENTERPRISE_DB,
@@ -280,7 +279,7 @@ session = client.graph_analytics.create(
         name="analysis",
         memory=estimate.recommended_size,
         ttl="1h",
-        tenant_id="6981ace7-efe8-4f5c-b7c5-267b5162ce91",
+        tenant_id="11111111-2222-4333-8444-555555555555",
         cloud_provider=CloudProvider.GCP,
         region="europe-west1",
     )
@@ -297,7 +296,7 @@ Get a metrics endpoint from `tenants.get_metrics_integration()` or from an insta
 `https://*.neo4j.io` URLs are accepted.
 
 ```python
-instance = client.instances.get("2f49c2b3")
+instance = client.instances.get("a1b2c3d4")
 url = instance.metrics_integration_url
 if url is None:
     raise SystemExit("metrics are not enabled for this instance")
@@ -341,7 +340,7 @@ AuraError
 
 ```python
 try:
-    client.instances.get("2f49c2b3")
+    client.instances.get("a1b2c3d4")
 except aura.NotFoundError:
     print("no such instance")
 except aura.AuraAPIError as err:
