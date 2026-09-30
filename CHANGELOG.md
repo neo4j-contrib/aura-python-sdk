@@ -8,6 +8,10 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 
 ## Unreleased
 
+## v0.1.3 - 2026-09-30
+
+The first release published to PyPI through CI.
+
 ### Changed
 
 - Releases are published to PyPI: install with `pip install aura-python-sdk`. The README no
