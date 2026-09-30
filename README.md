@@ -37,9 +37,15 @@ You need an Aura API client ID and secret. See
 
 Requires Python 3.11 or later.
 
+The SDK is not on PyPI yet. Pre-release builds are published to
+[TestPyPI](https://test.pypi.org/project/aura-python-sdk/):
+
 ```sh
-pip install aura-python-sdk
+pip install --pre -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ aura-python-sdk
 ```
+
+`--pre` is needed because every release so far is a pre-release. `--extra-index-url` lets pip
+fetch `httpx` from PyPI, since TestPyPI does not carry it.
 
 ## Quick start
 
@@ -382,9 +388,36 @@ AURA_CLIENT_ID=... AURA_CLIENT_SECRET=... uv run pytest -m integration
 AURA_INTEGRATION_WRITE=1 AURA_TENANT_ID=... uv run pytest -m integration   # also creates/deletes
 ```
 
-To release, add a `## vX.Y.Z` section to [CHANGELOG.md](CHANGELOG.md), then tag and push
-`vX.Y.Z`. The version comes from the tag, so there is nothing else to edit. The release
-workflow runs the tests, builds, publishes to TestPyPI and creates the GitHub release.
+The package version comes from the latest git tag, via
+[hatch-vcs](https://github.com/ofek/hatch-vcs), which writes `src/aura_python_sdk/_version.py`
+when the package is built or installed. That file is not in git, so run `uv sync` in a fresh
+clone before importing the package. Between tags, `__version__` has a local suffix such as
+`0.1.1.dev3+g8d7381f` (three commits after `v0.1.0`, at commit `8d7381f`).
+
+### Releasing
+
+Releases are published to TestPyPI only for now. There is no version number to edit:
+
+1. Merge the changes to `main`.
+2. On `main`, add a `## vX.Y.Z` section to [CHANGELOG.md](CHANGELOG.md), and commit and push
+   it. That section becomes the GitHub release notes.
+3. Tag the commit and push the tag:
+
+   ```sh
+   git tag v0.1.0.dev1
+   git push origin v0.1.0.dev1
+   ```
+
+The tag must be `v` followed by a
+[normalised Python version](https://packaging.python.org/en/latest/specifications/version-specifiers/),
+for example `v0.1.0`, `v0.2.0rc1` or `v0.1.0.dev2`, not `v0.1.0-dev1`. The workflow fails
+if the built version does not match the tag. Tags containing `dev`, `a`, `b` or `rc` become
+GitHub pre-releases.
+
+Pushing the tag runs [the release workflow](.github/workflows/release.yml). It runs the lint,
+type and test checks, builds the package, publishes to TestPyPI and creates the GitHub release.
+TestPyPI never accepts the same version twice, so a fix needs a new tag. Re-running the
+workflow for an existing tag leaves the uploaded files unchanged.
 
 ## License
 
