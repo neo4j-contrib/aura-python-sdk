@@ -46,9 +46,30 @@ jobs:
           name: dist
           path: dist/
 
+  # Rehearsal upload: a broken package fails here before it reaches the real index.
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/aura-python-sdk/
+    permissions:
+      id-token: write # TestPyPI trusted publishing; no API token is stored in the repo
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          # Versions can't be re-uploaded, so a re-run after a partial release must not fail here.
+          skip-existing: true
+
   publish:
     name: Publish to PyPI
-    needs: build
+    needs: publish-testpypi
     runs-on: ubuntu-latest
     environment:
       name: pypi
