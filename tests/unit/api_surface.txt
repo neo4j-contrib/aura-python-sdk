@@ -1,0 +1,421 @@
+aura_python_sdk.AsyncAuraClient
+CLASS
+    __aenter__(self) -> 'Self'
+    __aexit__(self, exc_type: 'type[BaseException] | None', exc: 'BaseException | None', tb: 'TracebackType | None') -> 'None'
+    __init__(self, *, client_id: 'str', client_secret: 'str', base_url: 'str' = 'https://api.neo4j.io', allow_insecure_base_url: 'bool' = False, allow_untrusted_metrics_urls: 'bool' = False, timeout: 'float' = 120.0, max_retries: 'int' = 3, max_response_size: 'int' = 10485760, user_agent: 'str' = 'aura-python-sdk/<version>', default_headers: 'Mapping[str, str] | None' = None, logger: 'logging.Logger | None' = None, transport: 'AsyncHttpTransport | None' = None) -> 'None'
+    aclose(self) -> 'None'
+    property base_url -> str
+    classmethod from_env(cls, **options: 'Unpack[_AsyncClientOptions]') -> 'Self'
+    with_options(self, *, timeout: 'float | None' = None, max_retries: 'int | None' = None) -> 'Self'
+aura_python_sdk.AsyncHttpTransport
+CLASS(Protocol)
+    aclose(self) -> 'None'
+    send(self, request: 'HttpRequest') -> 'HttpResponse'
+aura_python_sdk.AuraAPIError
+CLASS(AuraError)
+    __init__(self, status_code: 'int', message: 'str', details: 'Sequence[ErrorDetail]' = (), *, request_id: 'str | None' = None) -> 'None'
+    all_errors(self) -> 'list[str]'
+    property has_multiple_errors -> bool
+    property is_bad_request -> bool
+    property is_not_found -> bool
+    property is_unauthorized -> bool
+aura_python_sdk.AuraClient
+CLASS
+    __enter__(self) -> 'Self'
+    __exit__(self, exc_type: 'type[BaseException] | None', exc: 'BaseException | None', tb: 'TracebackType | None') -> 'None'
+    __init__(self, *, client_id: 'str', client_secret: 'str', base_url: 'str' = 'https://api.neo4j.io', allow_insecure_base_url: 'bool' = False, allow_untrusted_metrics_urls: 'bool' = False, timeout: 'float' = 120.0, max_retries: 'int' = 3, max_response_size: 'int' = 10485760, user_agent: 'str' = 'aura-python-sdk/<version>', default_headers: 'Mapping[str, str] | None' = None, logger: 'logging.Logger | None' = None, transport: 'HttpTransport | None' = None) -> 'None'
+    property base_url -> str
+    close(self) -> 'None'
+    classmethod from_env(cls, **options: 'Unpack[_ClientOptions]') -> 'Self'
+    with_options(self, *, timeout: 'float | None' = None, max_retries: 'int | None' = None) -> 'Self'
+aura_python_sdk.AuraClientClosedError
+CLASS(AuraError, RuntimeError)
+aura_python_sdk.AuraConfigurationError
+CLASS(AuraError, ValueError)
+aura_python_sdk.AuraConnectionError
+CLASS(AuraError, ConnectionError)
+    __init__(self, message: 'str', *, request_sent: 'bool') -> 'None'
+aura_python_sdk.AuraError
+CLASS(Exception)
+aura_python_sdk.AuraResponseError
+CLASS(AuraError)
+aura_python_sdk.AuraTimeoutError
+CLASS(AuraConnectionError, TimeoutError)
+aura_python_sdk.AuraValidationError
+CLASS(AuraError, ValueError)
+aura_python_sdk.AuthenticationError
+CLASS(AuraAPIError)
+aura_python_sdk.BadRequestError
+CLASS(AuraAPIError)
+aura_python_sdk.CDCEnrichmentMode
+ENUM
+    OFF = 'OFF'
+    DIFF = 'DIFF'
+    FULL = 'FULL'
+aura_python_sdk.CloudProvider
+ENUM
+    GCP = 'gcp'
+    AWS = 'aws'
+    AZURE = 'azure'
+aura_python_sdk.ConflictError
+CLASS(AuraAPIError)
+aura_python_sdk.ConnectionMetrics
+DATACLASS(frozen=True) __init__(self, *, active_connections: 'int | None' = None, max_connections: 'int | None' = None, usage_percent: 'float | None' = None) -> None
+    active_connections: int | None = None
+    max_connections: int | None = None
+    usage_percent: float | None = None
+aura_python_sdk.CreatedInstance
+DATACLASS(frozen=True) __init__(self, *, id: 'str', name: 'str', tenant_id: 'str', cloud_provider: 'CloudProvider | str', region: 'str', type: 'InstanceType | str', connection_url: 'str', username: 'str', password: 'str', created_at: 'datetime | None' = None, vector_optimized: 'bool | None' = None, graph_analytics_plugin: 'bool | None' = None) -> None
+    id: str = REQUIRED
+    name: str = REQUIRED
+    tenant_id: str = REQUIRED
+    cloud_provider: CloudProvider | str = REQUIRED
+    region: str = REQUIRED
+    type: InstanceType | str = REQUIRED
+    connection_url: str = REQUIRED
+    username: str = REQUIRED
+    password: str = REQUIRED
+    created_at: datetime | None = None
+    vector_optimized: bool | None = None
+    graph_analytics_plugin: bool | None = None
+aura_python_sdk.CreatedSnapshot
+DATACLASS(frozen=True) __init__(self, *, snapshot_id: 'str') -> None
+    snapshot_id: str = REQUIRED
+aura_python_sdk.CustomerManagedKey
+DATACLASS(frozen=True) __init__(self, *, id: 'str', name: 'str', tenant_id: 'str', cloud_provider: 'CloudProvider | str', region: 'str', instance_type: 'InstanceType | str', key_id: 'str', status: 'str', created: 'datetime | None' = None) -> None
+    id: str = REQUIRED
+    name: str = REQUIRED
+    tenant_id: str = REQUIRED
+    cloud_provider: CloudProvider | str = REQUIRED
+    region: str = REQUIRED
+    instance_type: InstanceType | str = REQUIRED
+    key_id: str = REQUIRED
+    status: str = REQUIRED
+    created: datetime | None = None
+aura_python_sdk.CustomerManagedKeySummary
+DATACLASS(frozen=True) __init__(self, *, id: 'str', name: 'str', tenant_id: 'str') -> None
+    id: str = REQUIRED
+    name: str = REQUIRED
+    tenant_id: str = REQUIRED
+aura_python_sdk.DeletedGDSSession
+DATACLASS(frozen=True) __init__(self, *, id: 'str') -> None
+    id: str = REQUIRED
+aura_python_sdk.ErrorDetail
+DATACLASS(frozen=True) __init__(self, message: 'str', reason: 'str | None' = None, field: 'str | None' = None) -> None
+    message: str = REQUIRED
+    reason: str | None = None
+    field: str | None = None
+aura_python_sdk.GDSSession
+DATACLASS(frozen=True) __init__(self, *, id: 'str', name: 'str', memory: 'str', host: 'str', tenant_id: 'str', user_id: 'str', status: 'GDSSessionStatus | str | None' = None, instance_id: 'str | None' = None, database_uuid: 'str | None' = None, cloud_provider: 'CloudProvider | str | None' = None, region: 'str | None' = None, created_at: 'datetime | None' = None, expiry_date: 'datetime | None' = None, ttl: 'str | None' = None) -> None
+    id: str = REQUIRED
+    name: str = REQUIRED
+    memory: str = REQUIRED
+    host: str = REQUIRED
+    tenant_id: str = REQUIRED
+    user_id: str = REQUIRED
+    status: GDSSessionStatus | str | None = None
+    instance_id: str | None = None
+    database_uuid: str | None = None
+    cloud_provider: CloudProvider | str | None = None
+    region: str | None = None
+    created_at: datetime | None = None
+    expiry_date: datetime | None = None
+    ttl: str | None = None
+aura_python_sdk.GDSSessionConfig
+DATACLASS(frozen=True) __init__(self, *, name: 'str', memory: 'str', tenant_id: 'str | None' = None, ttl: 'str | None' = None, instance_id: 'str | None' = None, database_uuid: 'str | None' = None, cloud_provider: 'CloudProvider | str | None' = None, region: 'str | None' = None) -> None
+    name: str = REQUIRED
+    memory: str = REQUIRED
+    tenant_id: str | None = None
+    ttl: str | None = None
+    instance_id: str | None = None
+    database_uuid: str | None = None
+    cloud_provider: CloudProvider | str | None = None
+    region: str | None = None
+aura_python_sdk.GDSSessionSizeEstimate
+DATACLASS(frozen=True) __init__(self, *, estimated_memory: 'str', recommended_size: 'str') -> None
+    estimated_memory: str = REQUIRED
+    recommended_size: str = REQUIRED
+aura_python_sdk.GDSSessionStatus
+ENUM
+    CREATING = 'Creating'
+    READY = 'Ready'
+    EXPIRED = 'Expired'
+    FAILED = 'Failed'
+aura_python_sdk.HealthStatus
+ENUM
+    HEALTHY = 'healthy'
+    WARNING = 'warning'
+    CRITICAL = 'critical'
+aura_python_sdk.HttpRequest
+DATACLASS(frozen=True) __init__(self, method: 'str', url: 'str', headers: 'Mapping[str, str]', body: 'bytes | None', timeout: 'float', max_response_size: 'int') -> None
+    method: str = REQUIRED
+    url: str = REQUIRED
+    headers: Mapping[str, str] = REQUIRED
+    body: bytes | None = REQUIRED
+    timeout: float = REQUIRED
+    max_response_size: int = REQUIRED
+aura_python_sdk.HttpResponse
+DATACLASS(frozen=True) __init__(self, status_code: 'int', headers: 'Mapping[str, str]' = <factory>, body: 'bytes' = b'') -> None
+    status_code: int = REQUIRED
+    headers: Mapping[str, str] = factory:<class 'dict'>
+    body: bytes = b''
+aura_python_sdk.HttpTransport
+CLASS(Protocol)
+    close(self) -> 'None'
+    send(self, request: 'HttpRequest') -> 'HttpResponse'
+aura_python_sdk.Instance
+DATACLASS(frozen=True) __init__(self, *, id: 'str', name: 'str', status: 'InstanceStatus | str', tenant_id: 'str', cloud_provider: 'CloudProvider | str', connection_url: 'str | None' = None, region: 'str', type: 'InstanceType | str', memory: 'str | None' = None, storage: 'str | None' = None, created_at: 'datetime | None' = None, metrics_integration_url: 'str | None' = None, customer_managed_key_id: 'str | None' = None, graph_nodes: 'int | None' = None, graph_relationships: 'int | None' = None, secondaries_count: 'int | None' = None, cdc_enrichment_mode: 'CDCEnrichmentMode | str | None' = None, vector_optimized: 'bool | None' = None, graph_analytics_plugin: 'bool | None' = None) -> None
+    id: str = REQUIRED
+    name: str = REQUIRED
+    status: InstanceStatus | str = REQUIRED
+    tenant_id: str = REQUIRED
+    cloud_provider: CloudProvider | str = REQUIRED
+    connection_url: str | None = None
+    region: str = REQUIRED
+    type: InstanceType | str = REQUIRED
+    memory: str | None = None
+    storage: str | None = None
+    created_at: datetime | None = None
+    metrics_integration_url: str | None = None
+    customer_managed_key_id: str | None = None
+    graph_nodes: int | None = None
+    graph_relationships: int | None = None
+    secondaries_count: int | None = None
+    cdc_enrichment_mode: CDCEnrichmentMode | str | None = None
+    vector_optimized: bool | None = None
+    graph_analytics_plugin: bool | None = None
+aura_python_sdk.InstanceConfig
+DATACLASS(frozen=True) __init__(self, *, name: 'str', tenant_id: 'str', cloud_provider: 'CloudProvider | str', region: 'str', type: 'InstanceType | str', version: 'str', memory: 'str', vector_optimized: 'bool | None' = None, graph_analytics_plugin: 'bool | None' = None, customer_managed_key_id: 'str | None' = None) -> None
+    name: str = REQUIRED
+    tenant_id: str = REQUIRED
+    cloud_provider: CloudProvider | str = REQUIRED
+    region: str = REQUIRED
+    type: InstanceType | str = REQUIRED
+    version: str = REQUIRED
+    memory: str = REQUIRED
+    vector_optimized: bool | None = None
+    graph_analytics_plugin: bool | None = None
+    customer_managed_key_id: str | None = None
+aura_python_sdk.InstanceConfiguration
+DATACLASS(frozen=True) __init__(self, *, cloud_provider: 'CloudProvider | str', region: 'str', region_name: 'str', type: 'InstanceType | str', memory: 'str', version: 'str', storage: 'str | None' = None) -> None
+    cloud_provider: CloudProvider | str = REQUIRED
+    region: str = REQUIRED
+    region_name: str = REQUIRED
+    type: InstanceType | str = REQUIRED
+    memory: str = REQUIRED
+    version: str = REQUIRED
+    storage: str | None = None
+aura_python_sdk.InstanceHealth
+DATACLASS(frozen=True) __init__(self, *, instance_id: 'str', timestamp: 'datetime', resources: 'ResourceMetrics', query: 'QueryMetrics', connections: 'ConnectionMetrics', storage: 'StorageMetrics', overall_status: 'HealthStatus', issues: 'tuple[str, ...]' = (), recommendations: 'tuple[str, ...]' = ()) -> None
+    instance_id: str = REQUIRED
+    timestamp: datetime = REQUIRED
+    resources: ResourceMetrics = REQUIRED
+    query: QueryMetrics = REQUIRED
+    connections: ConnectionMetrics = REQUIRED
+    storage: StorageMetrics = REQUIRED
+    overall_status: HealthStatus = REQUIRED
+    issues: tuple[str, ...] = ()
+    recommendations: tuple[str, ...] = ()
+aura_python_sdk.InstanceSizeEstimate
+DATACLASS(frozen=True) __init__(self, *, recommended_size: 'str', min_required_memory: 'str', did_exceed_maximum: 'bool') -> None
+    recommended_size: str = REQUIRED
+    min_required_memory: str = REQUIRED
+    did_exceed_maximum: bool = REQUIRED
+aura_python_sdk.InstanceStatus
+ENUM
+    CREATING = 'creating'
+    DESTROYING = 'destroying'
+    RUNNING = 'running'
+    PAUSING = 'pausing'
+    PAUSED = 'paused'
+    SUSPENDING = 'suspending'
+    SUSPENDED = 'suspended'
+    RESUMING = 'resuming'
+    LOADING = 'loading'
+    LOADING_FAILED = 'loading failed'
+    RESTORING = 'restoring'
+    UPDATING = 'updating'
+    OVERWRITING = 'overwriting'
+    STOPPED = 'stopped'
+    AVAILABLE = 'available'
+aura_python_sdk.InstanceSummary
+DATACLASS(frozen=True) __init__(self, *, id: 'str', name: 'str', tenant_id: 'str', cloud_provider: 'CloudProvider | str', created_at: 'datetime | None' = None) -> None
+    id: str = REQUIRED
+    name: str = REQUIRED
+    tenant_id: str = REQUIRED
+    cloud_provider: CloudProvider | str = REQUIRED
+    created_at: datetime | None = None
+aura_python_sdk.InstanceType
+ENUM
+    ENTERPRISE_DB = 'enterprise-db'
+    ENTERPRISE_DS = 'enterprise-ds'
+    BUSINESS_CRITICAL = 'business-critical'
+    PROFESSIONAL_DB = 'professional-db'
+    PROFESSIONAL_DS = 'professional-ds'
+    FREE_DB = 'free-db'
+aura_python_sdk.MetricNotFoundError
+CLASS(AuraError, LookupError)
+aura_python_sdk.MetricsIntegration
+DATACLASS(frozen=True) __init__(self, *, endpoint: 'str') -> None
+    endpoint: str = REQUIRED
+aura_python_sdk.NotFoundError
+CLASS(AuraAPIError)
+aura_python_sdk.OperationFailedError
+CLASS(AuraError)
+    __init__(self, message: 'str', *, resource: 'object') -> 'None'
+aura_python_sdk.PermissionDeniedError
+CLASS(AuraAPIError)
+aura_python_sdk.PrometheusMetric
+DATACLASS(frozen=True) __init__(self, *, name: 'str', labels: 'Mapping[str, str]' = <factory>, value: 'float', timestamp_ms: 'int | None' = None) -> None
+    name: str = REQUIRED
+    labels: Mapping[str, str] = factory:<class 'dict'>
+    value: float = REQUIRED
+    timestamp_ms: int | None = None
+aura_python_sdk.PrometheusMetrics
+DATACLASS(frozen=True) __init__(self, *, metrics: 'Mapping[str, tuple[PrometheusMetric, ...]]' = <factory>) -> None
+    metrics: Mapping[str, tuple[PrometheusMetric, ...]] = factory:<class 'dict'>
+aura_python_sdk.QueryMetrics
+DATACLASS(frozen=True) __init__(self, *, query_execution_total: 'float | None' = None, median_latency_ms: 'float | None' = None) -> None
+    query_execution_total: float | None = None
+    median_latency_ms: float | None = None
+aura_python_sdk.RateLimitError
+CLASS(AuraAPIError)
+    __init__(self, status_code: 'int', message: 'str', details: 'Sequence[ErrorDetail]' = (), *, request_id: 'str | None' = None, retry_after: 'float | None' = None) -> 'None'
+aura_python_sdk.ResourceMetrics
+DATACLASS(frozen=True) __init__(self, *, cpu_usage_percent: 'float | None' = None, memory_usage_percent: 'float | None' = None) -> None
+    cpu_usage_percent: float | None = None
+    memory_usage_percent: float | None = None
+aura_python_sdk.ServerError
+CLASS(AuraAPIError)
+aura_python_sdk.Snapshot
+DATACLASS(frozen=True) __init__(self, *, snapshot_id: 'str', instance_id: 'str', status: 'SnapshotStatus | str', profile: 'SnapshotProfile | str | None' = None, timestamp: 'datetime | None' = None, exportable: 'bool | None' = None) -> None
+    snapshot_id: str = REQUIRED
+    instance_id: str = REQUIRED
+    status: SnapshotStatus | str = REQUIRED
+    profile: SnapshotProfile | str | None = None
+    timestamp: datetime | None = None
+    exportable: bool | None = None
+aura_python_sdk.SnapshotProfile
+ENUM
+    AD_HOC = 'AdHoc'
+    SCHEDULED = 'Scheduled'
+aura_python_sdk.SnapshotStatus
+ENUM
+    COMPLETED = 'Completed'
+    IN_PROGRESS = 'InProgress'
+    FAILED = 'Failed'
+    PENDING = 'Pending'
+    CANCELLED = 'Cancelled'
+aura_python_sdk.StorageMetrics
+DATACLASS(frozen=True) __init__(self, *, page_cache_hit_rate: 'float | None' = None) -> None
+    page_cache_hit_rate: float | None = None
+aura_python_sdk.Tenant
+DATACLASS(frozen=True) __init__(self, *, id: 'str', name: 'str', instance_configurations: 'tuple[InstanceConfiguration, ...]' = ()) -> None
+    id: str = REQUIRED
+    name: str = REQUIRED
+    instance_configurations: tuple[InstanceConfiguration, ...] = ()
+aura_python_sdk.TenantSummary
+DATACLASS(frozen=True) __init__(self, *, id: 'str', name: 'str') -> None
+    id: str = REQUIRED
+    name: str = REQUIRED
+aura_python_sdk.WaitTimeoutError
+CLASS(AuraError, TimeoutError)
+    __init__(self, message: 'str', *, resource: 'object') -> 'None'
+aura_python_sdk.__version__
+VALUE = '<version>'
+aura_python_sdk.services.AsyncCMEKService
+CLASS(AsyncService)
+    create(self, *, name: 'str', key_id: 'str', tenant_id: 'str', cloud_provider: 'CloudProvider | str', region: 'str', instance_type: 'InstanceType | str') -> 'CustomerManagedKey'
+    delete(self, key_id: 'str') -> 'None'
+    get(self, key_id: 'str') -> 'CustomerManagedKey'
+    list(self, *, tenant_id: 'str | None' = None) -> 'builtins.list[CustomerManagedKeySummary]'
+aura_python_sdk.services.AsyncGDSSessionService
+CLASS(AsyncService)
+    create(self, config: 'GDSSessionConfig') -> 'GDSSession'
+    delete(self, session_id: 'str') -> 'DeletedGDSSession'
+    estimate_size(self, *, node_count: 'int', relationship_count: 'int', node_property_count: 'int | None' = None, node_label_count: 'int | None' = None, relationship_property_count: 'int | None' = None, algorithm_categories: 'Sequence[str] | None' = None) -> 'GDSSessionSizeEstimate'
+    get(self, session_id: 'str') -> 'GDSSession'
+    list(self, *, tenant_id: 'str | None' = None, instance_id: 'str | None' = None, organization_id: 'str | None' = None) -> 'builtins.list[GDSSession]'
+    wait_until_ready(self, session_id: 'str', *, timeout: 'float' = 900.0, interval: 'float' = 10.0) -> 'GDSSession'
+aura_python_sdk.services.AsyncInstanceService
+CLASS(AsyncService)
+    create(self, config: 'InstanceConfig') -> 'CreatedInstance'
+    create_from_instance(self, config: 'InstanceConfig', *, source_instance_id: 'str') -> 'CreatedInstance'
+    create_from_snapshot(self, config: 'InstanceConfig', *, source_instance_id: 'str', source_snapshot_id: 'str') -> 'CreatedInstance'
+    delete(self, instance_id: 'str') -> 'Instance'
+    estimate_size(self, *, node_count: 'int', relationship_count: 'int', instance_type: 'InstanceType | str | None' = None, algorithm_categories: 'Sequence[str] | None' = None) -> 'InstanceSizeEstimate'
+    get(self, instance_id: 'str') -> 'Instance'
+    list(self, *, tenant_id: 'str | None' = None) -> 'builtins.list[InstanceSummary]'
+    overwrite_from_instance(self, instance_id: 'str', *, source_instance_id: 'str') -> 'Instance'
+    overwrite_from_snapshot(self, instance_id: 'str', *, source_snapshot_id: 'str') -> 'Instance'
+    pause(self, instance_id: 'str') -> 'Instance'
+    resume(self, instance_id: 'str') -> 'Instance'
+    update(self, instance_id: 'str', *, name: 'str | None' = None, memory: 'str | None' = None, storage: 'str | None' = None, vector_optimized: 'bool | None' = None, graph_analytics_plugin: 'bool | None' = None, cdc_enrichment_mode: 'CDCEnrichmentMode | str | None' = None, secondaries_count: 'int | None' = None) -> 'Instance'
+    upgrade(self, instance_id: 'str', *, memory: 'str | None' = None, storage: 'str | None' = None) -> 'Instance'
+    wait_for_status(self, instance_id: 'str', *, status: 'InstanceStatus | str' = <InstanceStatus.RUNNING: 'running'>, timeout: 'float' = 900.0, interval: 'float' = 10.0) -> 'Instance'
+aura_python_sdk.services.AsyncPrometheusService
+CLASS(AsyncService)
+    __init__(self, api: 'AsyncRequestService', logger: 'logging.Logger', *, allow_untrusted_urls: 'bool' = False) -> 'None'
+    fetch_raw_metrics(self, prometheus_url: 'str') -> 'PrometheusMetrics'
+    get_instance_health(self, instance_id: 'str', prometheus_url: 'str') -> 'InstanceHealth'
+    get_metric_value(self, metrics: 'PrometheusMetrics', name: 'str', label_filters: 'Mapping[str, str] | None' = None) -> 'float'
+aura_python_sdk.services.AsyncSnapshotService
+CLASS(AsyncService)
+    create(self, instance_id: 'str') -> 'CreatedSnapshot'
+    get(self, instance_id: 'str', snapshot_id: 'str') -> 'Snapshot'
+    list(self, instance_id: 'str', *, date: 'dt.date | None' = None) -> 'builtins.list[Snapshot]'
+    restore(self, instance_id: 'str', snapshot_id: 'str') -> 'Instance'
+    wait_for_completion(self, instance_id: 'str', snapshot_id: 'str', *, timeout: 'float' = 900.0, interval: 'float' = 10.0) -> 'Snapshot'
+aura_python_sdk.services.AsyncTenantService
+CLASS(AsyncService)
+    get(self, tenant_id: 'str') -> 'Tenant'
+    get_metrics_integration(self, tenant_id: 'str') -> 'MetricsIntegration'
+    list(self) -> 'builtins.list[TenantSummary]'
+aura_python_sdk.services.CMEKService
+CLASS(Service)
+    create(self, *, name: 'str', key_id: 'str', tenant_id: 'str', cloud_provider: 'CloudProvider | str', region: 'str', instance_type: 'InstanceType | str') -> 'CustomerManagedKey'
+    delete(self, key_id: 'str') -> 'None'
+    get(self, key_id: 'str') -> 'CustomerManagedKey'
+    list(self, *, tenant_id: 'str | None' = None) -> 'builtins.list[CustomerManagedKeySummary]'
+aura_python_sdk.services.GDSSessionService
+CLASS(Service)
+    create(self, config: 'GDSSessionConfig') -> 'GDSSession'
+    delete(self, session_id: 'str') -> 'DeletedGDSSession'
+    estimate_size(self, *, node_count: 'int', relationship_count: 'int', node_property_count: 'int | None' = None, node_label_count: 'int | None' = None, relationship_property_count: 'int | None' = None, algorithm_categories: 'Sequence[str] | None' = None) -> 'GDSSessionSizeEstimate'
+    get(self, session_id: 'str') -> 'GDSSession'
+    list(self, *, tenant_id: 'str | None' = None, instance_id: 'str | None' = None, organization_id: 'str | None' = None) -> 'builtins.list[GDSSession]'
+    wait_until_ready(self, session_id: 'str', *, timeout: 'float' = 900.0, interval: 'float' = 10.0) -> 'GDSSession'
+aura_python_sdk.services.InstanceService
+CLASS(Service)
+    create(self, config: 'InstanceConfig') -> 'CreatedInstance'
+    create_from_instance(self, config: 'InstanceConfig', *, source_instance_id: 'str') -> 'CreatedInstance'
+    create_from_snapshot(self, config: 'InstanceConfig', *, source_instance_id: 'str', source_snapshot_id: 'str') -> 'CreatedInstance'
+    delete(self, instance_id: 'str') -> 'Instance'
+    estimate_size(self, *, node_count: 'int', relationship_count: 'int', instance_type: 'InstanceType | str | None' = None, algorithm_categories: 'Sequence[str] | None' = None) -> 'InstanceSizeEstimate'
+    get(self, instance_id: 'str') -> 'Instance'
+    list(self, *, tenant_id: 'str | None' = None) -> 'builtins.list[InstanceSummary]'
+    overwrite_from_instance(self, instance_id: 'str', *, source_instance_id: 'str') -> 'Instance'
+    overwrite_from_snapshot(self, instance_id: 'str', *, source_snapshot_id: 'str') -> 'Instance'
+    pause(self, instance_id: 'str') -> 'Instance'
+    resume(self, instance_id: 'str') -> 'Instance'
+    update(self, instance_id: 'str', *, name: 'str | None' = None, memory: 'str | None' = None, storage: 'str | None' = None, vector_optimized: 'bool | None' = None, graph_analytics_plugin: 'bool | None' = None, cdc_enrichment_mode: 'CDCEnrichmentMode | str | None' = None, secondaries_count: 'int | None' = None) -> 'Instance'
+    upgrade(self, instance_id: 'str', *, memory: 'str | None' = None, storage: 'str | None' = None) -> 'Instance'
+    wait_for_status(self, instance_id: 'str', *, status: 'InstanceStatus | str' = <InstanceStatus.RUNNING: 'running'>, timeout: 'float' = 900.0, interval: 'float' = 10.0) -> 'Instance'
+aura_python_sdk.services.PrometheusService
+CLASS(Service)
+    __init__(self, api: 'RequestService', logger: 'logging.Logger', *, allow_untrusted_urls: 'bool' = False) -> 'None'
+    fetch_raw_metrics(self, prometheus_url: 'str') -> 'PrometheusMetrics'
+    get_instance_health(self, instance_id: 'str', prometheus_url: 'str') -> 'InstanceHealth'
+    get_metric_value(self, metrics: 'PrometheusMetrics', name: 'str', label_filters: 'Mapping[str, str] | None' = None) -> 'float'
+aura_python_sdk.services.SnapshotService
+CLASS(Service)
+    create(self, instance_id: 'str') -> 'CreatedSnapshot'
+    get(self, instance_id: 'str', snapshot_id: 'str') -> 'Snapshot'
+    list(self, instance_id: 'str', *, date: 'dt.date | None' = None) -> 'builtins.list[Snapshot]'
+    restore(self, instance_id: 'str', snapshot_id: 'str') -> 'Instance'
+    wait_for_completion(self, instance_id: 'str', snapshot_id: 'str', *, timeout: 'float' = 900.0, interval: 'float' = 10.0) -> 'Snapshot'
+aura_python_sdk.services.TenantService
+CLASS(Service)
+    get(self, tenant_id: 'str') -> 'Tenant'
+    get_metrics_integration(self, tenant_id: 'str') -> 'MetricsIntegration'
+    list(self) -> 'builtins.list[TenantSummary]'
