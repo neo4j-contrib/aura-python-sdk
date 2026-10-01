@@ -8,6 +8,16 @@ the `## vX.Y.Z` section that matches the pushed tag as the GitHub release notes.
 
 ## Unreleased
 
+## v0.1.5 - 2026-10-01
+
+### Fixed
+
+- The default transport verifies certificates against the operating system's trust store (macOS
+  Keychain, Windows certificate store) instead of OpenSSL's own CA files, using the new
+  `truststore` dependency. Behind a TLS-inspecting corporate proxy, requests failed with
+  `CERTIFICATE_VERIFY_FAILED: self-signed certificate in certificate chain` even when the
+  proxy's root CA was trusted by the system. The Go SDK already behaved this way.
+
 ## v0.1.4 - 2026-09-30
 
 Fixes from the security review ([docs/security-review.md](docs/security-review.md)).

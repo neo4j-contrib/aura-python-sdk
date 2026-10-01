@@ -10,6 +10,7 @@ from __future__ import annotations
 import ssl
 
 import httpx
+import truststore
 
 from aura_python_sdk._errors import AuraConnectionError, AuraResponseError, AuraTimeoutError
 from aura_python_sdk._transport import HttpRequest, HttpResponse
@@ -23,7 +24,10 @@ _NOT_SENT_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)
 
 
 def _tls_context() -> ssl.SSLContext:
-    context = ssl.create_default_context()
+    # Verify against the operating system's trust store (macOS Keychain, Windows certificate
+    # store, or the system CA bundle on Linux) rather than OpenSSL's own CA files, so a root
+    # CA installed by a corporate TLS-inspecting proxy is trusted, as it is in Go.
+    context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     context.minimum_version = ssl.TLSVersion.TLSv1_2
     return context
 
