@@ -24,6 +24,7 @@ PACKAGE_ROOT = SRC_ROOT / PACKAGE
 # third-party top-level module -> the single module (relative to src/) allowed to import it
 WRAPPED_DEPENDENCIES: dict[str, str] = {
     "httpx": f"{PACKAGE}/_internal/http/_httpx.py",
+    "truststore": f"{PACKAGE}/_internal/http/_httpx.py",
 }
 
 
